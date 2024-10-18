@@ -1,0 +1,249 @@
+Program is
+  (
+    ImportStatement
+    or DynamicImportStatement
+    or ExportStatement
+    or StrategyDeclarationStatement
+    or ExtensionDeclarationStatement
+    or VariableDeclarationStatement
+    or ActionDeclarationStatement
+    or TypeDeclarationStatement
+    or ExprStatement
+  )* statements
+,
+
+ExportableStatement is
+  StrategyDeclarationStatement
+or ExtensionDeclarationStatement
+or VariableDeclarationStatement
+or TypeDeclarationStatement
+or ActionDeclarationStatement
+,
+ExportStatement is
+  "export" ExportableStatement
+,
+// import from Native::OpenLibrary("Sayuri.Silly.sayuc") as SillyActor;
+DynamicImportStatement is
+  "import" "from" CallExpr "as" Ident ";"
+,
+// import RenderStrategy::*;
+// import Intruments::CspInterop::*;
+ImportStatement is
+  "import"
+  Ident
+  ImportPathQualifier
+  ("as" Ident)?
+  ";"
+,
+// ::RenderStrategy
+// ::Intruments::{ CspInterop, HumanInterfaceDevice::{Pen} }
+ImportPathQualifier is
+  "::"
+  (
+    Ident
+    or (
+      "{"
+      (
+        Ident
+        ImportPathQualifier
+        Comma
+      )*
+      Ident
+      ImportPathQualifier
+      "}"
+    )
+  )
+,
+// ::Symbol
+PathQualifier is
+  ("::" Ident)+
+
+,
+// export strategy Standard
+StrategyDeclarationStatement is
+  "strategy"
+  Ident name
+  (
+    // extends RenderStrategy<Standard>
+    "extends" TypeExpr
+    (Type ",")*
+    Type
+  )?
+  "{"
+  StrategyBody?
+  "}"
+,
+ExtensionDeclarationStatement is
+  "extension" PathQualifier "on" StrategyDeclarationStatement
+,
+StrategyBody is
+  (
+    (
+      KvPair
+      ("," or ";")
+    )*
+    KvPair
+  )
+,
+StrategyField is
+  KvPair
+  or ActionField
+,
+/*
+  action draw<P>(pat of P) -> Visuals
+  where
+    P has Geometry + Color + Texture?
+  is { ... }
+*/
+ActionDeclarationStatement is
+  "action" Ident
+  ("<" TypeParameterList ">")?
+  "(" ActionParameterList* ")"
+  ("->" TypeExpr)?
+  ("where" TypeConstraintList)?
+  "is"
+  "{" ActionBody "}"
+,
+ActionParameterList is
+  (
+    ActionParameterDefintion
+    Coma
+  )*
+  ActionParameterDefintion
+,
+ActionParameterDefintion is
+  Ident
+  ("of" TypeExpr)?
+,
+TypeParameterList is
+  (
+    Ident typeParam
+    Coma
+  )*
+  Ident typeParam
+,
+TypeConstraintList is
+  (
+    TypeConstraint
+    Coma
+  )*
+  TypeConstraint
+,
+TypeConstraint is
+  Ident "has" (
+    (Ident "+")*
+    Ident
+  )
+
+TypeDeclarationStatement is
+  "declare" "type" Ident "is" TypeExpr ";"
+,
+TypeExpr is
+  TypeModifiers?
+  (
+    PlainType,
+    or GenericType
+    or TupleType
+    or FunctionType
+  )
+,
+PlainType is
+  Ident
+  or PathQualifier
+,
+GenericType is
+    PlainType
+    "<"
+    TypeExpr
+    ("," TypeExpr)*
+    ">"
+,
+TupleType is
+    "("
+    TypeExpr
+    ("," TypeExpr)*
+    ")"
+,
+// action(T1, T2) -> TResult
+FunctionType is
+  "action"
+  "("
+  TypeExpr
+  ("," TypeExpr)*
+  ")"
+  "->"
+  TypeExpr
+,
+// let var x be Int = 1;
+VariableDeclarationStatement is
+  "let" ("var")? Ident
+    ("be" TypeExpr)?
+    "="
+    Expr
+    ";"
+,
+KvPair is
+  DictKvPair
+or GetterKvPair
+,
+DictKvPair is
+  Ident key
+  ":"
+  Expr value
+,
+GetterKvPair is
+  Ident key
+  "=>" Expr value
+,
+
+// Casting operations / modifier keywords counts as operators
+Expr is
+  CallExpr
+or 	TupleExpr
+or  BinaryExpr
+or	UnaryExpr
+or 	Ident
+or 	Literal
+,
+
+CallExpr is
+  (
+    (
+      (PathQualifier or Ident)
+      PathQualifier*
+    )
+    or (
+      LParen
+      Expr callee
+      RParen
+    )
+  )
+  LParen
+  (
+    (
+      Expr argumentR
+      Coma
+    )*
+    Expr argumentL
+  )?
+  RParen
+
+TupleExpr is
+  LParen
+  (
+    Expr expression
+    Coma
+  )*
+  Expr expression
+  RParen
+,
+
+BinaryExpr is
+  Expr left
+  BinaryOperator operator
+  Expr right
+,
+
+UnaryExpr is
+  UnaryOperator operator
+  Expr expr

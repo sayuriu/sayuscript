@@ -1,0 +1,6 @@
+.idea
+.vscode
+.vs
+node_modules
+deno.lock
+# why do we even need package locks

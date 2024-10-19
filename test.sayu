@@ -1,2 +1,2 @@
 // Comment
-let expr = -3 + 2 * 3;
+let expr = 1 + (2 / -6 - 3) * -4;

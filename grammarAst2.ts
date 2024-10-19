@@ -33,7 +33,7 @@ export class GrammarParser2 extends ParserBase {
             if (token.value === Keywords.Let) {
                 const ident = new Identifier(this.expect(TokenKind.Ident).value!);
                 this.expect(TokenKind.Eq)
-                const expr = this.Expression();
+                let expr = this.Expression();
                 this.expect(TokenKind.Semi);
                 return new (class DeclarationStatement {
                     ident = ident
@@ -58,10 +58,10 @@ export class GrammarParser2 extends ParserBase {
     PrimaryExpression(): Expression
     {
         let token: Token;
-        if (token = this.expect(TokenKind.Ident, LiteralTokens) as Token) {
+        if (token = this.consume(TokenKind.Ident, LiteralTokens) as Token) {
             return this.format(token);
         }
-        if (token = this.expect(TokenKind.OpenParen) as Token) {
+        else if (token = this.consume(TokenKind.OpenParen) as Token) {
             let expr = this.Expression();
             this.expect(TokenKind.CloseParen);
             return expr;
@@ -69,9 +69,11 @@ export class GrammarParser2 extends ParserBase {
         throw new Error(`Unexpected token ${token}`);
     }
 
-    BinaryExpression(minPrecedence: number, lhs: Expression): Expression
+    /* Parses the next binary expression. */
+    BinaryExpression(minPrecedence: number, lhs: Expression): [Expression, boolean]
     {
         let token: Token;
+        let somethingParsed = false;
         while (token = this.consume(BinaryOperators) as Token) {
             const op = resolveOperator(token.type);
             const precedence = OperatorPrecedence(op);
@@ -79,22 +81,40 @@ export class GrammarParser2 extends ParserBase {
                 break;
             }
             let rhs = this.UnaryPrefixExpression();
+            somethingParsed = true;
             const nextOpPrecedence = OperatorPrecedence(resolveOperatorMaybe(this.currentToken.type));
             if (nextOpPrecedence)
             {
                 if (precedence < nextOpPrecedence) {
-                    rhs = this.BinaryExpression(precedence + 1, rhs);
+                    const [candidate, parsed] = this.BinaryExpression(precedence + 1, rhs);
+                    if (parsed) {
+                        rhs = candidate;
+                    }
                 }
             }
-            return new BinaryExpr(lhs, Operators[op], rhs);
+            return [new BinaryExpr(lhs, Operators[op], rhs), somethingParsed];
         }
-        return lhs;
+        return [lhs, somethingParsed];
     }
 
     /* Parses the next expression. */
     Expression() {
-        const lhs = this.UnaryPrefixExpression();
-        return this.BinaryExpression(0, lhs);
+        let lhs = this.UnaryPrefixExpression();
+        while (true)
+        {
+            if (this.currentlyIs(TokenKind.Semi, TokenKind.Eof)) {
+                return lhs;
+            }
+            const [expr, somethingParsed] = this.BinaryExpression(0, lhs);
+            if (!somethingParsed) {
+                return expr;
+            }
+            const nextBinOp = this.currentlyIs(BinaryOperators);
+            if (!nextBinOp) {
+                return expr;
+            }
+            lhs = expr;
+        }
     }
 
     format(node: Token) {

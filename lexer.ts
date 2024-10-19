@@ -4,8 +4,16 @@ import { Nullable, isWhitespace, isSpecialChar, isDigit, isAlpha, isAlphaNumeric
 export class Tokenizer {
     private lineCursor = 0;
     private cursor = 0;
+    private startPos = 0;
     private line = 1;
+    private multiCharOperators = [
+        '<<', '>>', '&&', '||', '==', '!=', '<=', '>=', '**'
+    ];
     constructor(public input: string) {}
+
+    get currentChar() {
+        return this.input[this.cursor];
+    }
 
     retreat() {
         return --this.cursor;
@@ -45,6 +53,10 @@ export class Tokenizer {
         let newIdx = this.cursor - offset;
         if (newIdx < 0) return null;
         return this.input[newIdx];
+    }
+
+    makeToken(kind: TokenKind, value: string) {
+        return new Token(kind, value, this.line, 0, this.startPos, this.cursor);
     }
 
     nextStringLiteral(isRaw = false)
@@ -125,7 +137,7 @@ export class Tokenizer {
             throw new LexerError(`Invalid character literal`, this.line, this.lineCursor);
         }
         this.advance()
-        return new Token(TokenKind.CharLiteral, buffer, this.line, 0, startPos, this.cursor);
+        return this.makeToken(TokenKind.CharLiteral, buffer);
     }
 
     nextIntegerLiteral() {
@@ -219,8 +231,13 @@ export class Tokenizer {
         return new NumberToken(mode, buffer, literalKind, this.line, startPos, this.cursor);
     }
 
+    nextMulticharOperator() {
+
+    }
+
     nextToken() {
-        let c: Nullable<string> = this.input[this.cursor];
+        this.startPos = this.cursor;
+        let c: Nullable<string> = this.currentChar;
 
         if (isWhitespace(c))
             while (isWhitespace(c = this.nextChar()));
@@ -229,7 +246,6 @@ export class Tokenizer {
             return new Token(TokenKind.Eof, null, this.line, 0, this.cursor, this.cursor);
 
         let buffer = '';
-        let startPos = this.cursor;
 
         if (c === "r") {
             let peek = this.lookAhead();
@@ -257,11 +273,63 @@ export class Tokenizer {
                 }
                 // TODO: Add block comments, (docstring too)
                 this.advance();
-                return new Token(TokenKind.Slash, c, this.line, 0, startPos, this.cursor);
+                return this.makeToken(TokenKind.Slash, c);
+            }
+            else if (c === '<' && this.lookAhead() === '<') {
+                this.advance();
+                this.advance();
+                return this.makeToken(TokenKind.LtLt, '<<');
+            }
+            else if (c === '>' && this.lookAhead() === '>') {
+                this.advance();
+                this.advance();
+                return this.makeToken(TokenKind.GtGt, '>>');
+            }
+            else if (c === '&' && this.lookAhead() === '&') {
+                this.advance();
+                this.advance();
+                return this.makeToken(TokenKind.AndAnd, '&&');
+            }
+            else if (c === '|' && this.lookAhead() === '|') {
+                this.advance();
+                this.advance();
+                return this.makeToken(TokenKind.OrOr, '||');
+            }
+            else if (c === '=') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeToken(TokenKind.EqEq, '==');
+                }
+                return this.makeToken(TokenKind.Eq, c);
+            }
+            else if (c === '!') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeToken(TokenKind.BangEq, '!=');
+                }
+                return this.makeToken(TokenKind.Bang, c);
+            }
+            else if (c === '<') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeToken(TokenKind.Le, '<=');
+                }
+                return this.makeToken(TokenKind.Lt, c);
+            }
+            else if (c === '>') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeToken(TokenKind.Ge, '>=');
+                }
+                return this.makeToken(TokenKind.Gt, c);
             }
             else {
                 this.advance();
-                return new Token(specialChars[c!], c, this.line, 0, startPos, this.cursor);
+                return this.makeToken(specialChars[c!], c);
             }
         }
         if (isDigit(c)) {
@@ -277,7 +345,7 @@ export class Tokenizer {
             // if (buffer in keywords) {
             //     mode = keywords[buffer];
             // }
-            return new Token(TokenKind.Ident, buffer, this.line, 0, startPos, this.cursor);
+            return this.makeToken(TokenKind.Ident, buffer);
         }
 
         // Unreachable

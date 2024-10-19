@@ -1,18 +1,19 @@
-import { OperatorPrecedence } from "./operators";
+import { Identifier } from "./ast";
+import { Operator, OperatorPrecedence } from "./operators";
 
 export class Expression {}
 export class BinaryExpr extends Expression {
-	constructor(public right: any, public operator: any, public left: any) {
+	constructor(public left: Expression, public operator: Operator, public right: Expression) {
 		super();
 	}
 }
 export class UnaryExpr extends Expression {
-	constructor(public operator: any, public expr: any) {
+	constructor(public operator: Operator, public expr: Expression) {
 		super();
 	}
 }
 export class FnCallExpr extends Expression {
-	constructor(public ident: any, public args: any[]) {
+	constructor(public ident: Identifier, public args: Expression[]) {
 		super();
 	}
 }
@@ -33,6 +34,6 @@ export const ExprPrecedence = (expr: Expression) => {
 		return PREC_PREFIX;
 	}
 	if (expr instanceof BinaryExpr) {
-		return OperatorPrecedence(expr.operator);
+		return OperatorPrecedence(expr.operator.kind);
 	}
 }

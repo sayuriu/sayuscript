@@ -29,7 +29,12 @@ export enum Operators {
 	Separator,
 }
 
-export class Operator { constructor(public op: Operators) {} }
+export class Operator {
+	type: string;
+	constructor(public kind: Operators) {
+		this.type = Operators[kind];
+	}
+}
 export class UnaryOperator extends Operator {}
 export class BinaryOperator extends Operator {}
 
@@ -129,9 +134,13 @@ export const BinaryOperators = [
 	TokenKind.Slash,
 	TokenKind.Percent,
 	TokenKind.Lt,
+	TokenKind.Le,
 	TokenKind.Gt,
+	TokenKind.Ge,
 	TokenKind.And,
+	TokenKind.AndAnd,
 	TokenKind.Or,
+	TokenKind.OrOr,
 	TokenKind.Caret,
 	TokenKind.Tilde,
 	TokenKind.Question,

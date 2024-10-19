@@ -5,7 +5,7 @@ import { Token, TokenKind } from "./tokens";
 import { Keywords } from './keywords';
 import { Nullable } from "./util";
 
-export class GrammarParser2 extends ParserBase {
+export class Parser extends ParserBase {
     constructor(protected tokens: Token[]) {
         super();
         this.currentToken = tokens[0];
@@ -16,13 +16,18 @@ export class GrammarParser2 extends ParserBase {
     }
 
     Program() {
-        let stmt = this.Statement();
+        const statements = [];
+        while (!this.eof()) {
+            let stmt = this.Statement();
+            if (!stmt) {
+                break;
+            }
+            statements.push(stmt);
+        }
         if (!this.eof()) {
             console.error(`Expecting Eof, got token ${this.currentToken}`)
         }
-        return new Program([
-            stmt
-        ]);
+        return new Program(statements);
     }
 
     Statement() {
@@ -41,6 +46,7 @@ export class GrammarParser2 extends ParserBase {
                 })
             }
         }
+        return null;
     }
 
     /*  */
@@ -49,7 +55,7 @@ export class GrammarParser2 extends ParserBase {
         let token: Token;
         if (token = this.consume(UnaryOperators) as Token) {
             let expr = this.UnaryPrefixExpression();
-            return new UnaryExpr(Operators[resolveOperator(token.type)], expr);
+            return new UnaryExpr(new Operator(resolveOperator(token.type)), expr);
         }
         return this.PrimaryExpression();
     }
@@ -66,7 +72,7 @@ export class GrammarParser2 extends ParserBase {
             this.expect(TokenKind.CloseParen);
             return expr;
         }
-        throw new Error(`Unexpected token ${token}`);
+        return null;
     }
 
     /* Parses the next binary expression. */
@@ -75,8 +81,8 @@ export class GrammarParser2 extends ParserBase {
         let token: Token;
         let somethingParsed = false;
         while (token = this.consume(BinaryOperators) as Token) {
-            const op = resolveOperator(token.type);
-            const precedence = OperatorPrecedence(op);
+            const opKind = resolveOperator(token.type);
+            const precedence = OperatorPrecedence(opKind);
             if (precedence < minPrecedence) {
                 break;
             }
@@ -92,7 +98,7 @@ export class GrammarParser2 extends ParserBase {
                     }
                 }
             }
-            return [new BinaryExpr(lhs, Operators[op], rhs), somethingParsed];
+            return [new BinaryExpr(lhs, new Operator(opKind), rhs), somethingParsed];
         }
         return [lhs, somethingParsed];
     }

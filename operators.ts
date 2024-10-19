@@ -1,44 +1,74 @@
-import { Keywords } from "./keywords.ts";
-import { TokenKind } from "./tokens.ts";
-import { PREC_UNAMBIGUOUS } from './expression.ts';
+import { Keywords } from "./keywords";
+import { TokenKind } from "./tokens";
+import { PREC_UNAMBIGUOUS } from './expression';
+import { Nullable } from "./util";
 
 export enum Operators {
 	// As = Keywords.As,
-	Add = TokenKind.Plus,
-	Subtract = TokenKind.Minus,
-	Multiply = TokenKind.Star,
-	Divide = TokenKind.Slash,
-	Modulus = TokenKind.Percent,
-	Less = TokenKind.Lt,
-	LessEqual = TokenKind.Le,
-	Greater = TokenKind.Gt,
-	GreaterEqual = TokenKind.Ge,
-	BitAnd = TokenKind.And,
-	BitXor = TokenKind.Caret,
-	BitOr = TokenKind.Or,
-	ShiftLeft = TokenKind.LtLt,
-	ShiftRight = TokenKind.GtGt,
-	LAnd = TokenKind.AndAnd,
-	LOr = TokenKind.OrOr,
-	LEqual = TokenKind.EqEq,
-	LNotEqual = TokenKind.BangEq,
-	Assign = TokenKind.Eq,
-	Not = TokenKind.Bang,
-	Paren = TokenKind.OpenParen,
-	Separator = TokenKind.Comma,
+	Add,
+	Subtract,
+	Multiply,
+	Divide,
+	Modulus,
+	Less,
+	LessEqual,
+	Greater,
+	GreaterEqual,
+	BitAnd,
+	BitXor,
+	BitOr,
+	ShiftLeft,
+	ShiftRight,
+	LAnd,
+	LOr,
+	LEqual,
+	LNotEqual,
+	Assign,
+	Not,
+	Paren,
+	Separator,
 }
 
 export class Operator { constructor(public op: Operators) {} }
 export class UnaryOperator extends Operator {}
 export class BinaryOperator extends Operator {}
 
-export const resolveOperator = (op: TokenKind | Keywords) => {
-	if (op in Operators)
-		return Operators[op];
-	throw new Error(`Unknown operator ${op}`);
+export const resolveOperator = (op: TokenKind | Keywords): Operators => {
+	switch (op) {
+		case TokenKind.Plus: return Operators.Add;
+		case TokenKind.Minus: return Operators.Subtract;
+		case TokenKind.Star: return Operators.Multiply;
+		case TokenKind.Slash: return Operators.Divide;
+		case TokenKind.Percent: return Operators.Modulus;
+		case TokenKind.Lt: return Operators.Less;
+		case TokenKind.Le: return Operators.LessEqual;
+		case TokenKind.Gt: return Operators.Greater;
+		case TokenKind.Ge: return Operators.GreaterEqual;
+		case TokenKind.And: return Operators.BitAnd;
+		case TokenKind.Caret: return Operators.BitXor;
+		case TokenKind.Or: return Operators.BitOr;
+		case TokenKind.LtLt: return Operators.ShiftLeft;
+		case TokenKind.GtGt: return Operators.ShiftRight;
+		case TokenKind.AndAnd: return Operators.LAnd;
+		case TokenKind.OrOr: return Operators.LOr;
+		case TokenKind.EqEq: return Operators.LEqual;
+		case TokenKind.BangEq: return Operators.LNotEqual;
+		case TokenKind.Eq: return Operators.Assign;
+		case TokenKind.Bang: return Operators.Not;
+		default: throw new Error(`Unknown operator ${op}`);
+	}
 }
 
-export const OperatorPrecedence = (op: Operators) => {
+export const resolveOperatorMaybe = (op: TokenKind | Keywords): Nullable<Operators> => {
+	try {
+		return resolveOperator(op);
+	}
+	catch {
+		return null;
+	}
+}
+
+export const OperatorPrecedence = (op: Operators): Nullable<number> => {
 	switch (op) {
 		// case Operators.As:
 		// 	return 14;
@@ -72,8 +102,8 @@ export const OperatorPrecedence = (op: Operators) => {
 		case Operators.Assign:
 			return 2;
 		default:
-			throw new Error(`Unknown operator ${op}`);
 	}
+	return null
 }
 
 export const OperatorPrecedenceEx = (op: Operators) => {

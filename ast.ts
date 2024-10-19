@@ -1,6 +1,6 @@
-import { Keywords } from "./keywords.ts";
-import { Token, TokenKind } from "./tokens.ts";
-import { Nullable } from "./util.ts";
+import { Keywords } from "./keywords";
+import { Token, TokenKind } from "./tokens";
+import { Nullable } from "./util";
 
 export class ParserError extends Error {
     constructor(message: string, public line: number, public startPos: number, public endPos: number) {
@@ -14,9 +14,13 @@ export class Identifier { constructor(public name: string) {} }
 export class Literal { constructor(public type: TokenKind, public value: string) {} }
 
 export abstract class ASTParserBase {
+    /* The current cursor position. */
     protected cursor = 0;
+    /* The current token that is being visited. */
     protected currentToken: Token;
+    /* The last token that was visited. */
     protected lastToken: Token;
+    /* The token stream. */
     protected abstract tokens: Token[];
 
     /** Gets the next token and advances the cursor. */
@@ -31,14 +35,17 @@ export abstract class ASTParserBase {
         return this.currentToken = this.tokens[--this.cursor];
     }
 
+    /** Checks if the cursor has reached the end of the token stream. */
     eof() {
         return this.currentToken.type === TokenKind.Eof;
     }
 
+    /** Looks ahead in the stream. */
     lookAhead(offset = 1) {
         return this.tokens[this.cursor + offset];
     }
 
+    /** Looks behind in the stream. */
     lookBehind(offset = 1) {
         return this.tokens[this.cursor - offset];
     }
@@ -53,7 +60,7 @@ export abstract class ASTParserBase {
         const token = this.currentToken;
         if (!expected.includes(token.type)) {
             throw new ParserError(
-                `Expected ${expected.length < 2 ? `\`${expected[0]}\`` : `any of ${expected.map(t => `\`${t}\``)}`} but got ${token.type}`,
+                `Expected ${expected.length < 2 ? '' : 'any of'} ${expected.map(t => `\`${TokenKind[t]}\``)} but got ${TokenKind[token.type]}`,
                 token.line,
                 token.startPos,
                 token.endPos

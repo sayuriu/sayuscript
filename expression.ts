@@ -1,4 +1,4 @@
-import { OperatorPrecedence } from "./operators.ts";
+import { OperatorPrecedence } from "./operators";
 
 export class Expression {}
 export class BinaryExpr extends Expression {

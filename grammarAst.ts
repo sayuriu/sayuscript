@@ -1,7 +1,7 @@
-import { ASTParserBase, Program, Identifier, Literal } from "./ast.ts";
-import { BinaryExpr, UnaryExpr } from "./expression.ts";
-import { UnaryOperators, Operator, resolveOperator, LiteralTypes, BinaryOperators } from "./operators.ts";
-import { Token, TokenKind } from "./tokens.ts";
+import { ASTParserBase, Program, Identifier, Literal } from "./ast";
+import { BinaryExpr, UnaryExpr } from "./expression";
+import { UnaryOperators, Operator, resolveOperator, LiteralTypes, BinaryOperators } from "./operators";
+import { Token, TokenKind } from "./tokens";
 
 export class ASTGrammarParser extends ASTParserBase {
     constructor(protected tokens: Token[]) {

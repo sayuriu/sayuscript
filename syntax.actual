@@ -1,0 +1,28 @@
+Program is
+	Statement[] statements
+
+Statement is
+	VariableDeclarationStatement
+
+VariableDeclarationStatement is
+	"let" Ident "=" Expr ";"
+
+Expr is
+	UnaryExpr
+	or BinaryExpr
+	or PrimaryExpr
+	or GroupedExpr
+
+UnaryExpr is
+	UnaryOperator PrimaryExpr
+
+BinaryExpr is
+	PrimaryExpr BinaryOperator PrimaryExpr
+
+PrimaryExpr is
+	Ident
+	or Literal
+	or GroupedExpr
+
+GroupedExpr is
+	"(" Expr ")"

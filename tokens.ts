@@ -1,5 +1,5 @@
-import { Keywords } from "./keywords.ts";
-import { Nullable } from "./util.ts";
+import { Keywords } from "./keywords";
+import { Nullable } from "./util";
 
 class TokenKind2 {
 
@@ -85,7 +85,7 @@ export const specialChars = {
 
 
 export enum NumberLiteralKind {
-    Normal = 'Dec',
+    Decimal = 'Dec',
     Hex = 'Hex',
     Octal = 'Oct',
     Binary = 'Bin',
@@ -102,9 +102,10 @@ export class Token {
     ) {}
 
     toString(position = false, full = false) {
-        if (this.type === TokenKind.Eof) return `${this.type}`;
+        let type = `${TokenKind[this.type]}`;
+        if (this.type === TokenKind.Eof)
+            return type;
 
-        let type = `${this.type}`;
         const isKeyword = this.value! in Keywords;
         if (isKeyword)
         {

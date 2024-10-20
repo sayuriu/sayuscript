@@ -360,7 +360,7 @@ export class Tokenizer {
                 this.advance();
                 return this.makeToken(TokenKind.AndAnd, '&&');
             }
-            return this.makeToken(TokenKind.AndAnd, '&&');
+            return this.makeToken(TokenKind.And, '&');
         }
         else if (c === '|' && this.lookAhead() === '|') {
             const next = this.lookAhead();

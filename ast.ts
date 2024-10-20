@@ -51,7 +51,9 @@ export abstract class ASTParserBase {
         return this.tokens[this.cursor - offset];
     }
 
-    /** Looks at the current token. */
+    /** Performs a type check against the current token.
+     * The token is not consumed regardless of the outcome.
+    */
     currentlyIs(...types: Array<TokenKind | Keywords | Array<TokenKind | Keywords>>): boolean {
         return types.flat().includes(this.currentToken.type);
     }

@@ -1,5 +1,5 @@
-import { Identifier } from "./ast";
-import { Operator, OperatorPrecedence } from "./operators";
+import { Identifier } from "./ast.ts";
+import { Operator, OperatorPrecedence } from "./operators.ts";
 
 export class Expression {}
 export class BinaryExpr extends Expression {

@@ -12,6 +12,7 @@ Expr is
 	or BinaryExpr
 	or PrimaryExpr
 	or GroupedExpr
+	or TupleExpr
 
 UnaryExpr is
 	UnaryOperator PrimaryExpr
@@ -26,3 +27,33 @@ PrimaryExpr is
 
 GroupedExpr is
 	"(" Expr ")"
+
+TupleExpr is
+	"(" Expr ("," Expr)* ")"
+
+Literal is
+	NumberLiteral
+	or StringLiteral
+
+NumberLiteral is
+	(
+		(
+			NonPrefixIntegerLiteral
+			or FloatLiteral
+		)
+		(
+			ExponentLiteral
+		)?
+	)
+	or PrefixedIntegerLiteral
+
+NonPrefixIntegerLiteral(Digit) is
+	Digit+ ("_"? Digit+)*
+
+ExponentLiteral is
+	("e" | "E") ("+" | "-")? Digit (Digit)*
+
+PrefixIntegerLiteral is
+	("0b" NonPrefixIntegerLiteral([0-1]))
+	or ("0o" NonPrefixIntegerLiteral([0-7]))
+	or ("0x" NonPrefixIntegerLiteral([0-9a-fA-F]))

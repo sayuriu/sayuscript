@@ -1,5 +1,5 @@
-import { Keywords } from "./keywords";
-import { Nullable } from "./util";
+import { Keywords } from "./keywords.ts";
+import { Nullable } from "./util.ts";
 
 class TokenKind2 {
 

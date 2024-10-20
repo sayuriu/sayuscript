@@ -1,6 +1,7 @@
-import { Keywords } from "./keywords";
-import { Token, TokenKind } from "./tokens";
-import { Nullable } from "./util";
+import { Keywords } from "./keywords.ts";
+import { Token, TokenKind } from "./tokens.ts";
+import { Nullable } from "./util.ts";
+import { Expression } from './expression.ts';
 
 export class ParserError extends Error {
     constructor(message: string, public line: number, public startPos: number, public endPos: number) {
@@ -8,7 +9,7 @@ export class ParserError extends Error {
     }
 }
 
-export class DeclarationStatement { constructor(public ident: any, public value: any) {} }
+export class DeclarationStatement { constructor(public ident: Identifier, public value: Expression) {} }
 export class Program { constructor(public body: any[]) {} }
 export class Identifier { constructor(public name: string) {} }
 export class Literal { constructor(public type: TokenKind, public value: string) {} }

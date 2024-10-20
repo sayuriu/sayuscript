@@ -1,9 +1,10 @@
-import { ASTParserBase as ParserBase, Program, Identifier, Literal } from "./ast";
-import { BinaryExpr, Expression, UnaryExpr } from "./expression";
-import { UnaryOperators, Operator, resolveOperator, LiteralTypes as LiteralTokens, BinaryOperators, OperatorPrecedence, resolveOperatorMaybe, Operators } from "./operators";
-import { Token, TokenKind } from "./tokens";
-import { Keywords } from './keywords';
-import { Nullable } from "./util";
+import { ASTParserBase as ParserBase, Program, Identifier, Literal } from "./ast.ts";
+import { BinaryExpr, Expression, UnaryExpr } from "./expression.ts";
+import { UnaryOperators, Operator, resolveOperator, LiteralTypes as LiteralTokens, BinaryOperators, OperatorPrecedence, resolveOperatorMaybe } from "./operators.ts";
+import { Token, TokenKind } from "./tokens.ts";
+import { Keywords } from './keywords.ts';
+import { todo } from "./util.ts";
+import { ParserError } from './ast.ts';
 
 export class Parser extends ParserBase {
     constructor(protected tokens: Token[]) {
@@ -18,7 +19,7 @@ export class Parser extends ParserBase {
     Program() {
         const statements = [];
         while (!this.eof()) {
-            let stmt = this.Statement();
+            const stmt = this.Statement();
             if (!stmt) {
                 break;
             }
@@ -38,7 +39,7 @@ export class Parser extends ParserBase {
             if (token.value === Keywords.Let) {
                 const ident = new Identifier(this.expect(TokenKind.Ident).value!);
                 this.expect(TokenKind.Eq)
-                let expr = this.Expression();
+                const expr = this.Expression();
                 this.expect(TokenKind.Semi);
                 return new (class DeclarationStatement {
                     ident = ident
@@ -49,26 +50,31 @@ export class Parser extends ParserBase {
         return null;
     }
 
-    /*  */
+    /*  Parses the next unary prefix expression, eg. `-1`. */
     UnaryPrefixExpression(): Expression
     {
-        let token: Token;
-        if (token = this.consume(UnaryOperators) as Token) {
-            let expr = this.UnaryPrefixExpression();
+        const token = this.currentToken;
+        if (this.consume(UnaryOperators) as Token) {
+            const expr = this.UnaryPrefixExpression();
             return new UnaryExpr(new Operator(resolveOperator(token.type)), expr);
         }
         return this.PrimaryExpression();
     }
 
+    UnaryPostfixExpression(): Expression
+    {
+        return todo("UnaryPostfixExpression");
+    }
+
     /* Parses the next primary expression. */
     PrimaryExpression(): Expression
     {
-        let token: Token;
-        if (token = this.consume(TokenKind.Ident, LiteralTokens) as Token) {
+        const token = this.currentToken;
+        if (this.consume(TokenKind.Ident, LiteralTokens) as Token) {
             return this.format(token);
         }
-        else if (token = this.consume(TokenKind.OpenParen) as Token) {
-            let expr = this.Expression();
+        else if (this.consume(TokenKind.OpenParen) as Token) {
+            const expr = this.Expression();
             this.expect(TokenKind.CloseParen);
             return expr;
         }
@@ -87,6 +93,17 @@ export class Parser extends ParserBase {
                 break;
             }
             let rhs = this.UnaryPrefixExpression();
+            if (!rhs) {
+                // Exists a binary operator, but there's no right-hand side of the expression
+                // TODO: Check if the operator is postfix
+                // * For now there's no postfix op yet, so we will throw
+                throw new ParserError(
+                    `Expected an expression right-hand side of binary expression, got \`${this.currentToken}\``,
+                    token.line,
+                    token.startPos,
+                    token.endPos
+                );
+            }
             somethingParsed = true;
             const nextOpPrecedence = OperatorPrecedence(resolveOperatorMaybe(this.currentToken.type));
             if (nextOpPrecedence)

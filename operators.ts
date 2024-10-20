@@ -1,7 +1,7 @@
-import { Keywords } from "./keywords";
-import { TokenKind } from "./tokens";
-import { PREC_UNAMBIGUOUS } from './expression';
-import { Nullable } from "./util";
+import { Keywords } from "./keywords.ts";
+import { TokenKind } from "./tokens.ts";
+import { PREC_UNAMBIGUOUS } from "./expression.ts";
+import { Nullable } from "./util.ts";
 
 export enum Operators {
 	// As = Keywords.As,
@@ -133,6 +133,8 @@ export const BinaryOperators = [
 	TokenKind.Star,
 	TokenKind.Slash,
 	TokenKind.Percent,
+	TokenKind.EqEq,
+	TokenKind.BangEq,
 	TokenKind.Lt,
 	TokenKind.Le,
 	TokenKind.Gt,

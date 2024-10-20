@@ -50,6 +50,15 @@ NumberLiteral is
 NonPrefixIntegerLiteral(Digit) is
 	Digit+ ("_"? Digit+)*
 
+FloatLiteral is
+	Digit*
+	(
+		(Digit+ ".")
+		or ("." Digit+)
+	)
+	Digit*
+
+
 ExponentLiteral is
 	("e" | "E") ("+" | "-")? Digit (Digit)*
 

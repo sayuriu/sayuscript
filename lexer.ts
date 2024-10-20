@@ -264,7 +264,7 @@ export class Tokenizer {
                 const remaining = this.matchUntil((c) => !c.match(/[0-9]/));
                 buffer += c + remaining;
             }
-            else if (c === 'e') {
+            else if (c === 'e' || c === 'E') {
                 const next = this.lookAhead() ?? '';
                 if (["+", "-"].includes(next)) {
                     if (!isDigit(this.lookAhead(2))) {

@@ -1,7 +1,7 @@
-import { ASTParserBase as ParserBase, Program, Identifier, Literal } from "./ast.ts";
+import { ParserBase as ParserBase, Program, Identifier, Literal } from "./ast.ts";
 import { BinaryExpr, Expression, UnaryExpr } from "./expression.ts";
-import { UnaryOperators, Operator, resolveOperator, LiteralTypes as LiteralTokens, BinaryOperators, OperatorPrecedence, resolveOperatorMaybe } from "./operators.ts";
-import { Token, TokenKind } from "./tokens.ts";
+import { UnaryOperators, Operator, resolveOperatorKind, LiteralTypes as LiteralTokens, BinaryOperators, OperatorPrecedence, resolveOperatorMaybe, resolveOperator } from "./operators.ts";
+import { Token, TokenKind } from "./token.ts";
 import { Keywords } from './keywords.ts';
 import { todo } from "./util.ts";
 import { ParserError } from './ast.ts';
@@ -32,17 +32,23 @@ export class Parser extends ParserBase {
     }
 
     Statement() {
-        let token: Token;
+        const token = this.currentToken;
 
-        if (token = this.consume(TokenKind.Ident) as Token) {
-            // DeclareStatement
+        if (this.consume(TokenKind.Ident)) {
+            // VariableDeclarationStatement
             if (token.value === Keywords.Let) {
-                const ident = new Identifier(this.expect(TokenKind.Ident).value!);
+                let isMutable = false;
+                let ident = this.expect(TokenKind.Ident);
+                if (ident.value === Keywords.Var) {
+                    isMutable = true;
+                    ident = this.expect(TokenKind.Ident);
+                }
                 this.expect(TokenKind.Eq)
                 const expr = this.Expression();
                 this.expect(TokenKind.Semi);
                 return new (class DeclarationStatement {
-                    ident = ident
+                    mutable = isMutable
+                    ident = new Identifier(ident.value)
                     value = expr
                 })
             }
@@ -50,13 +56,13 @@ export class Parser extends ParserBase {
         return null;
     }
 
-    /*  Parses the next unary prefix expression, eg. `-1`. */
+    /** Parses the next unary prefix expression, eg. `-1`. */
     UnaryPrefixExpression(): Expression
     {
         const token = this.currentToken;
-        if (this.consume(UnaryOperators) as Token) {
+        if (this.consume(UnaryOperators)) {
             const expr = this.UnaryPrefixExpression();
-            return new UnaryExpr(new Operator(resolveOperator(token.type)), expr);
+            return new UnaryExpr(resolveOperator(token.type), expr);
         }
         return this.PrimaryExpression();
     }
@@ -66,14 +72,17 @@ export class Parser extends ParserBase {
         return todo("UnaryPostfixExpression");
     }
 
-    /* Parses the next primary expression. */
+    /** Parses the next primary expression. */
     PrimaryExpression(): Expression
     {
         const token = this.currentToken;
-        if (this.consume(TokenKind.Ident, LiteralTokens) as Token) {
-            return this.format(token);
+        if (this.consume(TokenKind.Ident, LiteralTokens)) {
+            if (token.type === TokenKind.Ident) {
+                return new Identifier(token.value!);
+            }
+            return new Literal(token.type, token.value!);
         }
-        else if (this.consume(TokenKind.OpenParen) as Token) {
+        else if (this.consume(TokenKind.OpenParen)) {
             const expr = this.Expression();
             this.expect(TokenKind.CloseParen);
             return expr;
@@ -81,15 +90,17 @@ export class Parser extends ParserBase {
         return null;
     }
 
-    /* Parses the next binary expression. */
+    /** Parses the next binary expression.
+     * The second boolean return value indicates if something new was parsed.
+    */
     BinaryExpression(minPrecedence: number, lhs: Expression): [Expression, boolean]
     {
         let token: Token;
         let somethingParsed = false;
         while (token = this.consume(BinaryOperators) as Token) {
-            const opKind = resolveOperator(token.type);
-            const precedence = OperatorPrecedence(opKind);
-            if (precedence < minPrecedence) {
+            const currentOp = resolveOperator(token.type);
+            const currentOpPrecedence = currentOp.precedence;
+            if (currentOpPrecedence < minPrecedence) {
                 break;
             }
             let rhs = this.UnaryPrefixExpression();
@@ -99,23 +110,23 @@ export class Parser extends ParserBase {
                 // * For now there's no postfix op yet, so we will throw
                 throw new ParserError(
                     `Expected an expression right-hand side of binary expression, got \`${this.currentToken}\``,
-                    token.line,
-                    token.startPos,
-                    token.endPos
+                    token.lineSpan[0],
+                    token.positionSpan[0],
+                    token.positionSpan[1]
                 );
             }
             somethingParsed = true;
-            const nextOpPrecedence = OperatorPrecedence(resolveOperatorMaybe(this.currentToken.type));
+            const nextOpPrecedence = resolveOperatorMaybe(this.currentToken.type)?.precedence;
             if (nextOpPrecedence)
             {
-                if (precedence < nextOpPrecedence) {
-                    const [candidate, parsed] = this.BinaryExpression(precedence + 1, rhs);
+                if (currentOpPrecedence < nextOpPrecedence) {
+                    const [candidate, parsed] = this.BinaryExpression(currentOpPrecedence + 1, rhs);
                     if (parsed) {
                         rhs = candidate;
                     }
                 }
             }
-            return [new BinaryExpr(lhs, new Operator(opKind), rhs), somethingParsed];
+            return [new BinaryExpr(lhs, currentOp, rhs), somethingParsed];
         }
         return [lhs, somethingParsed];
     }
@@ -138,11 +149,5 @@ export class Parser extends ParserBase {
             }
             lhs = expr;
         }
-    }
-
-    format(node: Token) {
-        return node.type === TokenKind.Ident
-            ? new Identifier(node.value!)
-            : new Literal(node.type, node.value!);
     }
 }

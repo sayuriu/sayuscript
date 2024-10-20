@@ -1,60 +1,61 @@
-import { Token, TokenKind, specialChars, NumberToken, NumberLiteralKind as IntLiteralKind } from "./tokens.ts";
+import { TokenKind, specialChars, NumberLiteralKind, NumberToken, Token } from "./token.ts";
 import { Nullable, isWhitespace, isSpecialChar, isDigit, isAlpha, isAlphaNumeric } from "./util.ts";
 
 export class Tokenizer {
-    private lineCursor = 0;
+    /* The current cursor position in the source string. */
     private cursor = 0;
     private startPos = 0;
-    private line = 1;
-    private multiCharOperators = [
-        '<<', '>>', '&&', '||', '==', '!=', '<=', '>=', '**'
-    ];
+    /* The current line number in the source string. */
+    private currentLine = 0;
+    /* The cursor position in the current line. */
+    private lineCursor = 0;
     constructor(public input: string) {}
 
-    registerMultiCharOperator(op: string, kind: number) {
-        if (this.multiCharOperators.includes(op))
-            throw new Error(`Operator \`${op}\` is already registered.`);
-        this.multiCharOperators.push(op);
-    }
-
+    /* Gets the current character. */
     get currentChar() {
         return this.input[this.cursor];
     }
 
+    /* Retreats the cursor by one position.*/
     retreat() {
         return --this.cursor;
     }
 
+    /* Advances the cursor by one position. */
     advance() {
         this.cursor++;
         this.lineCursor++;
         return this.cursor;
     }
 
+    /* Gets the next character. */
     nextChar() {
         if (this.eof()) return null;
         const next = this.input[this.advance()];
         if (next === '\n') {
-            this.line++;
+            this.currentLine++;
             this.lineCursor = 0;
         }
         return next;
     }
 
-    lookBehindUntil(predicate: (c: Nullable<string>) => boolean) {
+    /* Looks further ahead and returns the position where the predicate first failed. */
+    lookAheadUntil(predicate: (c: Nullable<string>) => boolean) {
         let pos = 1;
-        while (predicate(this.lookBehind(pos))) {
+        while (predicate(this.lookAhead(pos))) {
             pos++;
         }
         return pos;
     }
 
+    /* Looks ahead in the input stream. */
     lookAhead(offset = 1) {
         const newIdx = this.cursor + offset;
         if (newIdx >= this.input.length) return null;
         return this.input[newIdx];
     }
 
+    /* Looks behind in the input stream. */
     lookBehind(offset = 1) {
         const newIdx = this.cursor - offset;
         if (newIdx < 0) return null;
@@ -76,12 +77,15 @@ export class Tokenizer {
     }
 
     makeToken(kind: TokenKind, value: string) {
-        return new Token(kind, value, this.line, 0, this.startPos, this.cursor);
+        const currentLine = this.currentLine;
+        const startPos = this.startPos;
+        return new Token(kind, value, [currentLine, currentLine], [startPos, startPos]);
     }
 
     nextStringLiteral(isRaw = false)
     {
         const startPos = this.cursor;
+        const startLine = this.currentLine;
         let buffer = '';
         if (isRaw) {
             while (this.nextChar()) {
@@ -102,16 +106,15 @@ export class Tokenizer {
             }
         }
         if (this.currentChar !== '"')
-            throw new LexerError(`Unterminated ${isRaw ? 'raw ' : ''}string literal`, this.line, this.lineCursor);
+            throw new LexerError(`Unterminated ${isRaw ? 'raw ' : ''}string literal`, this.currentLine, this.lineCursor);
 
         this.advance();
         return new Token(
             isRaw ? TokenKind.RawStrLiteral : TokenKind.StrLiteral,
             buffer,
-            this.line,
-            this.line - startPos,
-            startPos,
-            this.cursor
+            [startLine, this.currentLine],
+            [startPos, this.cursor],
+
         );
     }
 
@@ -119,6 +122,8 @@ export class Tokenizer {
         // A character literal is a single character surrounded by single quotes, such as 'a' or '5'.
         // A character literal may also be a single escape sequence, such as '\n' or '\x7F'.
         // A character literal may also be a single Unicode code point, such as '\u{1F600}'.
+        const startPos = this.cursor;
+        const currentLine = this.currentLine;
         let c = this.nextChar();
         let buffer = "'";
         buffer += (c ?? '');
@@ -154,14 +159,15 @@ export class Tokenizer {
             }
         }
         if (c !== "'") {
-            throw new LexerError(`Invalid character literal`, this.line, this.lineCursor);
+            throw new LexerError(`Invalid character literal`, currentLine, this.lineCursor);
         }
-        this.advance()
-        return this.makeToken(TokenKind.CharLiteral, buffer);
+        this.advance();
+        return new Token(TokenKind.CharLiteral, buffer, [currentLine, currentLine], [startPos, this.cursor]);
     }
 
     nextHexLiteral() {
         let buffer = '0x';
+        const startPos = this.cursor - 2;
         while (this.nextChar()) {
             const c = this.currentChar;
             if (c.match(/[a-fA-F0-9]/)) {
@@ -171,17 +177,24 @@ export class Tokenizer {
             } else if (c === '_' && !buffer.endsWith('_')) {
                     buffer += c;
             } else {
-                throw new LexerError(`Invalid hex literal \`${buffer + c}\``, this.line, this.lineCursor);
+                throw new LexerError(`Invalid hex literal \`${buffer + c}\``, this.currentLine, this.lineCursor);
             }
         }
         if (!isDigit(buffer[buffer.length - 1])) {
-            throw new LexerError(`Invalid hex literal \`${buffer}\``, this.line, this.lineCursor);
+            throw new LexerError(`Invalid hex literal \`${buffer}\``, this.currentLine, this.lineCursor);
         }
-        return new NumberToken(TokenKind.IntLiteral, buffer, IntLiteralKind.Hex, this.line, this.startPos, this.cursor);
+        return new NumberToken(
+            TokenKind.IntLiteral,
+            NumberLiteralKind.Hex,
+            buffer,
+            this.currentLine,
+            [startPos, this.cursor]
+        );
     }
 
     nextBinaryLiteral() {
         let buffer = '0b';
+        const startPos = this.cursor - 2;
         while (this.nextChar()) {
             const c = this.currentChar;
             if (c.match(/[0-1]/)) {
@@ -192,17 +205,24 @@ export class Tokenizer {
                 buffer += c;
             }
             else {
-                throw new LexerError(`Invalid binary literal \`${buffer + c}\``, this.line, this.lineCursor);
+                throw new LexerError(`Invalid binary literal \`${buffer + c}\``, this.currentLine, this.lineCursor);
             }
         }
         if (!isDigit(buffer[buffer.length - 1])) {
-            throw new LexerError(`Invalid binary literal \`${buffer}\``, this.line, this.lineCursor);
+            throw new LexerError(`Invalid binary literal \`${buffer}\``, this.currentLine, this.lineCursor);
         }
-        return new NumberToken(TokenKind.IntLiteral, buffer, IntLiteralKind.Binary, this.line, this.startPos, this.cursor);
+        return new NumberToken(
+            TokenKind.IntLiteral,
+            NumberLiteralKind.Binary,
+            buffer,
+            this.currentLine,
+            [startPos, this.cursor]
+        );
     }
 
     nextOctalLiteral() {
         let buffer = '0o';
+        const startPos = this.cursor - 2;
         while (this.nextChar()) {
             const c = this.currentChar;
             if (c.match(/[0-7]/)) {
@@ -212,13 +232,19 @@ export class Tokenizer {
             } else if (c === '_' && !buffer.endsWith('_')) {
                 buffer += c;
             } else {
-                throw new LexerError(`Invalid octal literal \`${buffer + c}\``, this.line, this.lineCursor);
+                throw new LexerError(`Invalid octal literal \`${buffer + c}\``, this.currentLine, this.lineCursor);
             }
         }
         if (!isDigit(buffer[buffer.length - 1])) {
-            throw new LexerError(`Invalid octal literal \`${buffer}\``, this.line, this.lineCursor);
+            throw new LexerError(`Invalid octal literal \`${buffer}\``, this.currentLine, this.lineCursor);
         }
-        return new NumberToken(TokenKind.IntLiteral, buffer, IntLiteralKind.Octal, this.line, this.startPos, this.cursor);
+        return new NumberToken(
+            TokenKind.IntLiteral,
+            NumberLiteralKind.Octal,
+            buffer,
+            this.currentLine,
+            [startPos, this.cursor]
+        );
     }
 
     nextNumberLiteral() {
@@ -238,7 +264,7 @@ export class Tokenizer {
         }
 
         const startPos = this.cursor;
-        let mode = TokenKind.IntLiteral;
+        let literalKind = TokenKind.IntLiteral;
         let buffer = this.currentChar;
 
         while (this.nextChar()) {
@@ -246,21 +272,21 @@ export class Tokenizer {
             if (c.match(/[0-9_]/)) {
                 if (c === '_') {
                     if (buffer.endsWith('_')) {
-                        throw new LexerError(`Invalid number literal`, this.line, this.lineCursor);
+                        throw new LexerError(`Invalid number literal`, this.currentLine, this.lineCursor);
                     }
                 }
                 buffer += c;
             }
             else if (c === '.') {
-                if (mode === TokenKind.FloatLiteral) {
+                if (literalKind === TokenKind.FloatLiteral) {
                     // Ambiguous to a spread operator
                     // ...On another thought, maybe that's for later
                     // if (buffer.endsWith('.')) {
                     //     break;
                     // }
-                    throw new LexerError(`Invalid float literal \`${buffer + c}\``, this.line, this.lineCursor);
+                    throw new LexerError(`Invalid float literal \`${buffer + c}\``, this.currentLine, this.lineCursor);
                 }
-                mode = TokenKind.FloatLiteral;
+                literalKind = TokenKind.FloatLiteral;
                 const remaining = this.matchUntil((c) => !c.match(/[0-9]/));
                 buffer += c + remaining;
             }
@@ -268,16 +294,16 @@ export class Tokenizer {
                 const next = this.lookAhead() ?? '';
                 if (["+", "-"].includes(next)) {
                     if (!isDigit(this.lookAhead(2))) {
-                        throw new LexerError(`Invalid exponent literal \`${buffer + c + next}\``, this.line, this.lineCursor);
+                        throw new LexerError(`Invalid exponent literal \`${buffer + c + next}\``, this.currentLine, this.lineCursor);
                     }
                 }
                 else if (!isDigit(next)) {
-                    throw new LexerError(`Invalid exponent literal \`${buffer + c + next}\``, this.line, this.lineCursor);
+                    throw new LexerError(`Invalid exponent literal \`${buffer + c + next}\``, this.currentLine, this.lineCursor);
                 }
                 buffer += c + next;
                 this.advance();
                 buffer += this.matchUntil((c) => !c.match(/[0-9]/));
-                mode = TokenKind.FloatLiteral;
+                literalKind = TokenKind.FloatLiteral;
             }
             else {
                 break;
@@ -286,9 +312,15 @@ export class Tokenizer {
 
         // check the buffer
         if (buffer.endsWith('_')) {
-            throw new LexerError(`Invalid number literal`, this.line, this.lineCursor);
+            throw new LexerError(`Invalid number literal`, this.currentLine, this.lineCursor);
         }
-        return new NumberToken(mode, buffer, IntLiteralKind.Decimal, this.line, startPos, this.cursor);
+        return new NumberToken(
+            literalKind,
+            NumberLiteralKind.Decimal,
+            buffer,
+            this.currentLine,
+            [startPos, this.cursor]
+        );
     }
 
     nextIdentifier() {
@@ -393,46 +425,44 @@ export class Tokenizer {
         }
     }
 
-    nextMulticharOperator() {
-        let buffer = this.currentChar;
-        let c: Nullable<string>;
-    }
-
     nextToken() {
         if (isWhitespace(this.currentChar))
             while (isWhitespace(this.nextChar()));
 
         if (this.eof())
-            return new Token(TokenKind.Eof, null, this.line, 0, this.cursor, this.cursor);
+        {
+            const currentLine = this.currentLine;
+            const position = this.cursor;
+            return new Token(TokenKind.Eof, null, [currentLine, currentLine], [position, position]);
+        }
 
-        this.startPos = this.cursor;
-        const c: Nullable<string> = this.currentChar;
+        const currentChar = this.currentChar;
 
-        if (c === "r") {
+        if (currentChar === "r") {
             const next = this.lookAhead();
             if (next === '"') {
                 this.advance();
                 return this.nextStringLiteral(true);
             }
         }
-        else if (c === '"') {
+        else if (currentChar === '"') {
             return this.nextStringLiteral();
         }
-        else if (c === "'") {
+        else if (currentChar === "'") {
             return this.nextCharLiteral();
         }
-        else if (isSpecialChar(c)) {
+        else if (isSpecialChar(currentChar)) {
             return this.parseSpecialChar();
         }
-        else if (isDigit(c)) {
+        else if (isDigit(currentChar)) {
             return this.nextNumberLiteral();
         }
-        else if (isAlpha(c)) {
+        else if (isAlpha(currentChar)) {
             return this.nextIdentifier();
         }
 
         // Unreachable
-        throw new LexerError(`Unexpected token \`${c} (0x${c?.charCodeAt(0).toString(16) ?? 'None'})\``, this.line, this.lineCursor);
+        throw new LexerError(`Unexpected token \`${currentChar} (0x${currentChar?.charCodeAt(0).toString(16) ?? 'None'})\``, this.currentLine, this.lineCursor);
     }
 
     eof() {

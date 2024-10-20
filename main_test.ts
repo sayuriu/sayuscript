@@ -1,15 +1,14 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { Parser } from "./parser.ts";
-import { lexer, LexerError } from "./lexer.ts";
-import { Operator, Operators } from './operators.ts';
+import { lexer, LexerError } from "./tokenizer.ts";
+import { Operator, OperatorKind } from './operators.ts';
 import { BinaryExpr, UnaryExpr } from './expression.ts';
 import { Literal } from './ast.ts';
-import { Token, TokenKind } from './tokens.ts';
+import { Token, TokenKind } from './token.ts';
 import { ParserError } from './ast.ts';
 
 {
-  const dummyData = [0, 0, 0, 0] as const;
-  const makeToken = (type: TokenKind, value: string) => new Token(type, value, ...dummyData);
+  const makeToken = (type: TokenKind, value: string) => new Token(type, value, [0, 0], [0, 0]);
   const input = `let float = .1 + 2. + 3.e3 + 3e+4 + 1.5e-6;`;
   const expected = [
     makeToken(TokenKind.Ident, "let"),
@@ -79,20 +78,20 @@ function mkNumLit(value: number, int = true) {
 
 // Parameterized test cases for valid expressions
 const validCases = [
-  { input: "3 + 4", expected: new BinaryExpr(mkNumLit(3), new Operator(Operators.Add), mkNumLit(4)) },
-  { input: "10 -2" , expected: new BinaryExpr(mkNumLit(10), new Operator(Operators.Subtract), mkNumLit(2)) },
-  { input: "  8 * 5", expected: new BinaryExpr(mkNumLit(8), new Operator(Operators.Multiply), mkNumLit(5)) },
+  { input: "3 + 4", expected: new BinaryExpr(mkNumLit(3), new Operator(OperatorKind.Add), mkNumLit(4)) },
+  { input: "10 -2" , expected: new BinaryExpr(mkNumLit(10), new Operator(OperatorKind.Subtract), mkNumLit(2)) },
+  { input: "  8 * 5", expected: new BinaryExpr(mkNumLit(8), new Operator(OperatorKind.Multiply), mkNumLit(5)) },
   {
     input: "(12 + -3) / -12",
     expected:
     new BinaryExpr(
       new BinaryExpr(
         mkNumLit(12),
-        new Operator(Operators.Add),
-        new UnaryExpr(new Operator(Operators.Subtract), mkNumLit(3)),
+        new Operator(OperatorKind.Add),
+        new UnaryExpr(new Operator(OperatorKind.Subtract), mkNumLit(3)),
       ),
-      new Operator(Operators.Divide),
-      new UnaryExpr(new Operator(Operators.Subtract), mkNumLit(12))
+      new Operator(OperatorKind.Divide),
+      new UnaryExpr(new Operator(OperatorKind.Subtract), mkNumLit(12))
     )
   },
 ];

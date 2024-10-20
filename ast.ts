@@ -1,5 +1,5 @@
 import { Keywords } from "./keywords.ts";
-import { Token, TokenKind } from "./tokens.ts";
+import { Token, TokenKind } from "./token.ts";
 import { Nullable } from "./util.ts";
 import { Expression } from './expression.ts';
 
@@ -14,7 +14,7 @@ export class Program { constructor(public body: any[]) {} }
 export class Identifier { constructor(public name: string) {} }
 export class Literal { constructor(public type: TokenKind, public value: string) {} }
 
-export abstract class ASTParserBase {
+export abstract class ParserBase {
     /* The current cursor position. */
     protected cursor = 0;
     /* The current token that is being visited. */
@@ -69,9 +69,9 @@ export abstract class ASTParserBase {
         if (!expected.includes(token.type)) {
             throw new ParserError(
                 `Expected ${expected.length < 2 ? '' : 'any of'} ${expected.map(t => `\`${TokenKind[t]}\``)} but got ${TokenKind[token.type]}`,
-                token.line,
-                token.startPos,
-                token.endPos
+                token.lineSpan[0],
+                token.positionSpan[0],
+                token.positionSpan[1]
             );
         }
         this.advance();

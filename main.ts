@@ -1,5 +1,5 @@
 import { inspect } from "node:util";
-import { lexer } from "./lexer.ts";
+import { lexer } from "./tokenizer.ts";
 import { Parser } from "./parser.ts";
 
 const args = Deno.args;
@@ -14,5 +14,7 @@ while (args.length > 0) {
         const ast = parser.parse()
         console.log(inspect(ast, { depth: null, colors: true }));
         console.log(JSON.parse(JSON.stringify(ast, null, 2)));
+        break;
     }
+    throw new Error(`Unknown argument: ${arg}`);
 }

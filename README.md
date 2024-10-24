@@ -10,10 +10,10 @@ deno run --allow-read main.ts --test <relative/path/to/script/file>
 ```
 eg.
 ```
-deno run --allow-read main.ts --test test.sayu>
+deno run --allow-read main.ts --test test.sayu
 ```
 
 ## Testing
 ```
-deno test
+deno test ./tests
 ```

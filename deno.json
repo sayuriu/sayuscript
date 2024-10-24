@@ -6,7 +6,7 @@
     "@std/assert": "jsr:@std/assert@1"
   },
   "compilerOptions": {
-    "strict": false,
+    "strict": true,
     "lib": [
       "ESNext",
       "DOM",

@@ -1,6 +1,3 @@
-import { Keywords } from "./keywords.ts";
-import type { Nullable } from "./util.ts";
-
 export enum TokenKind {
     StrLiteral    , // "sayuri"
     RawStrLiteral , // r"sayuri"
@@ -11,11 +8,11 @@ export enum TokenKind {
     Quote         , // '
     DoubleQuote   , // "
     BackQuote     , // `
-    OpenParen     , // (
-    CloseParen    , // )
-    OpenBrace     , // {
-    CloseBrace    , // }
-    OpenBracket   , // [
+    LParen        , // (
+    RParen        , // )
+    LBrace        , // {
+    RBrace        , // }
+    LBracket      , // [
     RBracket      , // ]
     Semi          , // ;
     Comma         , // ,
@@ -40,6 +37,7 @@ export enum TokenKind {
 	AndAnd 		  , // &&
     Or            , // |
 	OrOr 		  , // ||
+    Arrow         , // ->
     Caret         , // ^
     Tilde         , // ~
     Question      , // ?
@@ -51,11 +49,11 @@ export const specialChars = {
     "'": TokenKind.Quote,
     '"': TokenKind.DoubleQuote,
     '`': TokenKind.BackQuote,
-    '(': TokenKind.OpenParen,
-    ')': TokenKind.CloseParen,
-    '{': TokenKind.OpenBrace,
-    '}': TokenKind.CloseBrace,
-    '[': TokenKind.OpenBracket,
+    '(': TokenKind.LParen,
+    ')': TokenKind.RParen,
+    '{': TokenKind.LBrace,
+    '}': TokenKind.RBrace,
+    '[': TokenKind.LBracket,
     ']': TokenKind.RBracket,
     ';': TokenKind.Semi,
     ',': TokenKind.Comma,
@@ -85,39 +83,40 @@ export enum NumberLiteralKind {
     Binary = 'Bin',
 }
 
+
+export const LiteralTokenTypes = [
+    TokenKind.IntLiteral,
+    TokenKind.CharLiteral,
+    TokenKind.FloatLiteral,
+    TokenKind.StrLiteral,
+    TokenKind.RawStrLiteral,
+]
+
 /** A generic token class that can be used to represent any token. */
 export class Token {
 	constructor(
 		/** The type of the token. */
 		public readonly type: TokenKind,
 		/** Raw content of the token. */
-		public readonly value: string,
-		/**
-		 * The lines where the token is located.
-		 *
-		 * Stored as a tuple of `[startLine, endLine], inclusive`.
-		 * */
-		public readonly lineSpan: [number, number],
-		/**
-		 * The position where the token starts and ends.
-		 *
-		 * If the token spans more than one line, then the end position
-		 * is assumed to be the last character of the last line.
-		 */
-		public readonly positionSpan: [number, number],
+		public readonly content: string,
+        /**
+         * The span of the token in the source code.
+         *
+         * It is represented as `[start, end)`.
+         */
+        public readonly span: readonly [number, number],
+        /** The token's order in the token stream. */
+        public readonly tokenPos: number
 	) {}
 
 	/** Returns a string representation of the token. */
 	toString() {
-		return `${TokenKind[this.type]}${this.value ? `(${this.value})` : ''}`;
+		return `${TokenKind[this.type]}${this.content ? ` ${this.content}` : ''}`;
 	}
 
 	/** Returns the full string representation of the token. */
 	fullString() {
-		const [startLine, endLine] = this.lineSpan;
-		const [startPos, endPos] = this.positionSpan;
-		return this.toString()
-			+ ` at ${startLine}:${startPos} -> ${endLine}:${endPos}`;
+		return `${this.toString()} [${this.span[0]} -> ${this.span[1]})`;
 	}
 }
 
@@ -128,46 +127,13 @@ export class NumberToken extends Token {
 		/** The mode of the number token. */
 		public readonly mode: NumberLiteralKind,
 		value: string,
-		lineNumber: number,
-		positionSpan: [number, number],
+        span: readonly [number, number],
+        tokenPos: number
 	) {
-		super(type, value, [lineNumber, lineNumber], positionSpan);
+		super(type, value, span, tokenPos);
 	}
 
 	override toString() {
-		return `${TokenKind[this.type]}(${this.mode})${this.value ? `(${this.value})` : ''}`;
-	}
-}
-
-/** Represents an identifier. */
-export class Identifier extends Token {
-	constructor(
-		public readonly name: string,
-		type: TokenKind,
-		value: string,
-		lineSpan: [number, number],
-		positionSpan: [number, number],
-	) {
-		super(type, value, lineSpan, positionSpan);
-	}
-
-	override toString() {
-		if (this.isKeyword())
-		{
-			return `${Keywords[this.value]}Keyword`;
-		}
-		return `${TokenKind[this.type]}(${this.name})${this.value ? `(${this.value})` : ''}`;
-	}
-
-	/** Checks if the token is a keyword. */
-	isKeyword() {
-		return this.value in Keywords;
-	}
-
-	/** Tries resolving the keyword of the token.
-	 * Returns `null` if the token is not a keyword.
-	*/
-	tryResolveKeyword(): Nullable<string> {
-		return Keywords[this.value] ?? null;
+		return `${TokenKind[this.type]}(${this.mode})${this.content ? `(${this.content})` : ''}`;
 	}
 }

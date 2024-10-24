@@ -3,16 +3,54 @@ Program is
 
 Statement is
 	VariableDeclarationStatement
+	or ExprStatement
+	or FunctionDeclarationStatement
 
 VariableDeclarationStatement is
 	"let" Ident "=" Expr ";"
 
+FunctionDeclarationStatement is
+	(
+		"action"
+		Ident fnName
+		"("
+			ParameterList
+		")"
+		"->" BlockExpr
+	)
+
+ExprStatement is
+	StandaloneExpr ";"
+
+StandaloneExpr is
+	FnCallExpr
+	or BlockExpr
+	or BinaryExpr(BinaryOperator(Eq))
+
+ParameterList is
+	Ident ("," Ident)*
+
 Expr is
 	UnaryExpr
+	or FnCallExpr
+	or FnExpr
 	or BinaryExpr
 	or PrimaryExpr
-	or GroupedExpr
 	or TupleExpr
+	or BlockExpr
+	or ParenExpr
+
+FnExpr is (
+	"action"
+	Ident? fnName // might force anon fn have no name
+	"("
+		ParameterList
+	")"
+	"->" BlockExpr
+)
+
+FnCallExpr is
+	Ident "(" (Expr ("," Expr)*)? ")"
 
 UnaryExpr is
 	UnaryOperator PrimaryExpr
@@ -25,11 +63,15 @@ PrimaryExpr is
 	or Literal
 	or GroupedExpr
 
-GroupedExpr is
+TupleExpr is
+	"(" (Expr ("," Expr)*)? ")"
+
+ParenExpr is
 	"(" Expr ")"
 
-TupleExpr is
-	"(" Expr ("," Expr)* ")"
+BlockExpr is
+	("{" Statement* Expr "}")
+	or ("{" Statement* "}")
 
 Literal is
 	NumberLiteral

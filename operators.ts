@@ -1,166 +1,158 @@
 import { Keywords } from "./keywords.ts";
-import { TokenKind } from "./token.ts";
-import { PREC_UNAMBIGUOUS } from "./expression.ts";
-import { Nullable } from "./util.ts";
+import { Token, TokenKind } from "./token.ts";
+import { BidirectionalMap, Nullable, tryFn } from "./util.ts";
+import { resolveKeyword } from './keywords.ts';
+import { AstNode } from "./astNode.ts";
 
-export enum OperatorKind {
-	// As = Keywords.As,
-	Add,
-	Subtract,
-	Multiply,
-	Divide,
-	Modulus,
-	Less,
-	LessEqual,
-	Greater,
-	GreaterEqual,
-	BitAnd,
-	BitXor,
-	BitOr,
-	ShiftLeft,
-	ShiftRight,
-	LAnd,
-	LOr,
-	LEqual,
-	LNotEqual,
-	Assign,
-	Not,
-	Paren,
-	Separator,
+export enum Operations {
+    Cast         , // Type cast operator (`a as b`)
+    Add          , // `a + b`
+    Subtract     , // `a - b`
+    Multiply     , // `a * b`
+    Divide       , // `a / b`
+    Modulus      , // `a % b`
+    Less         , // `a < b`
+    LessEqual    , // `a <= b`
+    Greater      , // `a > b`
+    GreaterEqual , // `a >= b`
+    BitAnd       , // `a & b`
+    BitXor       , // `a ^ b`
+    BitOr        , // `a | b`
+    ShiftLeft    , // `a << b`
+    ShiftRight   , // `a >> b`
+    LAnd         , // `a && b`
+    LOr          , // `a || b`
+    LEqual       , // `a == b`
+    LNotEqual    , // `a != b`
+    Assign       , // `a = b`
+    Not          , // `!a`
 }
 
-export class Operator {
-	type: string;
-	constructor(public kind: OperatorKind) {
-		this.type = OperatorKind[kind];
-	}
-	public get precedence() {
-		return OperatorPrecedence(this.kind);
-	}
-}
-export class UnaryOperator extends Operator {}
-export class BinaryOperator extends Operator {}
+export const OperationMapping = new BidirectionalMap<Operations, TokenKind | Keywords>([
+    [Operations.Cast          , Keywords.As],
+    [Operations.Assign        , TokenKind.Eq],
+    [Operations.Add           , TokenKind.Plus],
+    [Operations.Subtract      , TokenKind.Minus],
+    [Operations.Multiply      , TokenKind.Star],
+    [Operations.Divide        , TokenKind.Slash],
+    [Operations.Modulus       , TokenKind.Percent],
+    [Operations.Less          , TokenKind.Lt],
+    [Operations.LessEqual     , TokenKind.Le],
+    [Operations.Greater       , TokenKind.Gt],
+    [Operations.GreaterEqual  , TokenKind.Ge],
+    [Operations.BitAnd        , TokenKind.And],
+    [Operations.BitXor        , TokenKind.Caret],
+    [Operations.BitOr         , TokenKind.Or],
+    [Operations.ShiftLeft     , TokenKind.LtLt],
+    [Operations.ShiftRight    , TokenKind.GtGt],
+    [Operations.LAnd          , TokenKind.AndAnd],
+    [Operations.LOr           , TokenKind.OrOr],
+    [Operations.LEqual        , TokenKind.EqEq],
+    [Operations.LNotEqual     , TokenKind.BangEq],
+    [Operations.Assign        , TokenKind.Eq],
+    [Operations.Not           , TokenKind.Bang],
+]);
 
-export const resolveOperatorKind = (op: TokenKind | Keywords): OperatorKind => {
-	switch (op) {
-		case TokenKind.Plus: return OperatorKind.Add;
-		case TokenKind.Minus: return OperatorKind.Subtract;
-		case TokenKind.Star: return OperatorKind.Multiply;
-		case TokenKind.Slash: return OperatorKind.Divide;
-		case TokenKind.Percent: return OperatorKind.Modulus;
-		case TokenKind.Lt: return OperatorKind.Less;
-		case TokenKind.Le: return OperatorKind.LessEqual;
-		case TokenKind.Gt: return OperatorKind.Greater;
-		case TokenKind.Ge: return OperatorKind.GreaterEqual;
-		case TokenKind.And: return OperatorKind.BitAnd;
-		case TokenKind.Caret: return OperatorKind.BitXor;
-		case TokenKind.Or: return OperatorKind.BitOr;
-		case TokenKind.LtLt: return OperatorKind.ShiftLeft;
-		case TokenKind.GtGt: return OperatorKind.ShiftRight;
-		case TokenKind.AndAnd: return OperatorKind.LAnd;
-		case TokenKind.OrOr: return OperatorKind.LOr;
-		case TokenKind.EqEq: return OperatorKind.LEqual;
-		case TokenKind.BangEq: return OperatorKind.LNotEqual;
-		case TokenKind.Eq: return OperatorKind.Assign;
-		case TokenKind.Bang: return OperatorKind.Not;
-		default: throw new Error(`Unknown operator ${op}`);
-	}
-}
-
-export const resolveOperatorMaybe = (op: TokenKind | Keywords): Nullable<Operator> => {
-	try {
-		return resolveOperator(op);
-	}
-	catch {
-		return null;
-	}
+export class Operator extends AstNode {
+    public readonly operation: Operations;
+    constructor(token: Token) {
+        super([token.tokenPos, token.tokenPos + 1]);
+        this.operation = resolveOperation(
+            token.type === TokenKind.Ident ?
+                resolveKeyword(token.content) :
+                token.type
+        );
+    }
+    public get operationName() {
+        return Operations[this.operation];
+    }
+    public get precedence() {
+        return OperatorPrecedence(this.operation);
+    }
 }
 
-export const resolveOperator = (op: TokenKind | Keywords): Operator => {
-	return new Operator(resolveOperatorKind(op));
+export const constructOperator = (token: Token): Operator => {
+   return new Operator(token);
 }
 
-export const OperatorPrecedence = (op: OperatorKind): Nullable<number> => {
-	switch (op) {
-		// case Operators.As:
-		// 	return 14;
-		case OperatorKind.Multiply:
-		case OperatorKind.Divide:
-		case OperatorKind.Modulus:
-			return 13;
-		case OperatorKind.Add:
-		case OperatorKind.Subtract:
-			return 12;
-		case OperatorKind.ShiftLeft:
-		case OperatorKind.ShiftRight:
-			return 11;
-		case OperatorKind.BitAnd:
-			return 10;
-		case OperatorKind.BitXor:
-			return 9;
-		case OperatorKind.BitOr:
-			return 8;
-		case OperatorKind.Less:
-		case OperatorKind.Greater:
-		case OperatorKind.LessEqual:
-		case OperatorKind.GreaterEqual:
-		case OperatorKind.LEqual:
-		case OperatorKind.LNotEqual:
-			return 7;
-		case OperatorKind.LAnd:
-			return 6;
-		case OperatorKind.LOr:
-			return 5;
-		case OperatorKind.Assign:
-			return 2;
-		default:
-	}
-	return null
+export const tryConstructOperator = (token: Token): Nullable<Operator> =>
+    tryFn(() => constructOperator(token));
+
+export const resolveOperation = (op: TokenKind | Keywords): Operations => {
+    const resolved = OperationMapping.getReverse(op);
+    if (!resolved) {
+        throw new Error(`Could not resolve operator ${TokenKind[op]}`);
+    }
+    return resolved;
 }
 
-export const OperatorPrecedenceEx = (op: OperatorKind) => {
-	switch (op) {
-		case OperatorKind.Paren:
-			return PREC_UNAMBIGUOUS;
-		case OperatorKind.Separator:
-			return PREC_UNAMBIGUOUS - 1;
-		default:
-			return OperatorPrecedence(op);
-	}
+export const tryResolveOperation = (op: TokenKind | Keywords): Nullable<Operations> =>
+    tryFn(() => resolveOperation(op));
+
+
+export const OperatorPrecedence = (op: Operations): Nullable<number> => {
+    switch (op) {
+        case Operations.Cast:
+        	return 14;
+        case Operations.Multiply:
+        case Operations.Divide:
+        case Operations.Modulus:
+            return 13;
+        case Operations.Add:
+        case Operations.Subtract:
+            return 12;
+        case Operations.ShiftLeft:
+        case Operations.ShiftRight:
+            return 11;
+        case Operations.BitAnd:
+            return 10;
+        case Operations.BitXor:
+            return 9;
+        case Operations.BitOr:
+            return 8;
+        case Operations.Less:
+        case Operations.Greater:
+        case Operations.LessEqual:
+        case Operations.GreaterEqual:
+        case Operations.LEqual:
+        case Operations.LNotEqual:
+            return 7;
+        case Operations.LAnd:
+            return 6;
+        case Operations.LOr:
+            return 5;
+        case Operations.Assign:
+            return 2;
+    }
+    return null
 }
 
 export const UnaryOperators = [
-	TokenKind.Plus,
-	TokenKind.Minus,
+    TokenKind.Plus,
+    TokenKind.Minus,
 ]
 
 export const BinaryOperators = [
-	TokenKind.Plus,
-	TokenKind.Minus,
-	TokenKind.Star,
-	TokenKind.Slash,
-	TokenKind.Percent,
-	TokenKind.EqEq,
-	TokenKind.BangEq,
-	TokenKind.Lt,
-	TokenKind.Le,
-	TokenKind.Gt,
-	TokenKind.Ge,
-	TokenKind.And,
-	TokenKind.AndAnd,
-	TokenKind.Or,
-	TokenKind.OrOr,
-	TokenKind.Caret,
-	TokenKind.Tilde,
-	TokenKind.Question,
-	TokenKind.At,
-	TokenKind.Dot,
-]
-
-export const LiteralTypes = [
-	TokenKind.IntLiteral,
-	TokenKind.CharLiteral,
-	TokenKind.FloatLiteral,
-	TokenKind.StrLiteral,
-	TokenKind.RawStrLiteral,
+    // Keywords.As,
+    TokenKind.Plus,
+    TokenKind.Minus,
+    TokenKind.Star,
+    TokenKind.Slash,
+    TokenKind.Percent,
+    TokenKind.Eq,
+    TokenKind.EqEq,
+    TokenKind.BangEq,
+    TokenKind.Lt,
+    TokenKind.Le,
+    TokenKind.Gt,
+    TokenKind.Ge,
+    TokenKind.And,
+    TokenKind.AndAnd,
+    TokenKind.Or,
+    TokenKind.OrOr,
+    TokenKind.Caret,
+    TokenKind.Tilde,
+    TokenKind.Question,
+    TokenKind.At,
+    TokenKind.Dot,
 ]

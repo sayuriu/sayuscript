@@ -164,3 +164,4 @@ export const LiteralTypes = [
 	TokenKind.StrLiteral,
 	TokenKind.RawStrLiteral,
 ]
+// add more

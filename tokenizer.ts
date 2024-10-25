@@ -86,7 +86,7 @@ export class Tokenizer {
 
     nextStringLiteral(isRaw = false)
     {
-        const startPos = this.cursor;
+        const startPos = this.cursor - (isRaw ? 1 : 0);
         let buffer = '';
         if (isRaw) {
             while (this.nextChar()) {
@@ -124,40 +124,39 @@ export class Tokenizer {
         // A character literal may also be a single Unicode code point, such as '\u{1F600}'.
         const startPos = this.cursor;
         let c = this.nextChar();
-        let buffer = "'";
-        buffer += (c ?? '');
+        let buffer = c ?? '';
         const isEscape = c === '\\';
-        buffer += (c = this.nextChar() ?? '')
         if (isEscape) {
-            if (c === 'x')
+            buffer += this.nextChar() ?? '';
+            if (this.currentChar === 'x')
             {
                 // we take 2 more
                 buffer += this.nextChar() ?? '';
                 buffer += this.nextChar() ?? '';
-                c = this.nextChar();
             }
-            else if (c === 'u') {
+            else if (this.currentChar === 'u') {
                 c = this.nextChar() ?? '';
+                buffer += c;
                 if (c === '{') {
-                    buffer += c;
                     while (!this.eof() && (c = this.nextChar())) {
                         if (c === '}' || c === '\n' || c === '\r')
                             break;
                         buffer += c;
                     }
                     buffer += c;
-                    c = this.nextChar();
                 } else {
                     let i = 0;
                     while (!this.eof() && (c = this.nextChar())) {
-                        if (i++ === 3 || c === '\n' || c === '\r')
+                        if (++i === 3 || c === '\n' || c === '\r')
                             break;
                         buffer += c;
                     }
+                    buffer += c;
                 }
             }
         }
-        if (c !== "'") {
+        this.advance();
+        if (this.currentChar !== "'") {
             throw new LexerError(`Invalid character literal`, this.currentLine, this.lineCursor);
         }
         this.advance();

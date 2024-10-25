@@ -1,9 +1,9 @@
 import { Token, TokenKind } from "./token.ts";
 import { Nullable } from "./util.ts";
-import { Expression, BlockExpr, exprCanStandalone } from './expression.ts';
 import { Keywords, tryResolveKeyword } from './keywords.ts';
 import { AstNode } from "./astNode.ts";
-
+import type { Statement } from "./statements.ts";
+import type { Visitor } from "./visitor.ts";
 
 export class Program extends AstNode {
     constructor(public body: Statement[]) {
@@ -18,37 +18,9 @@ export class Program extends AstNode {
             lastExpr.tokenSpan[1]
         ]);
     }
-}
-export class Statement extends AstNode {
-    fullString() {
-        return `${this.constructor.name} [${this.tokenSpan[0]} -> ${this.tokenSpan[1]})`;
-    }
-}
 
-export class ExpressionStatement extends Statement {
-    constructor(public readonly expr: Expression) {
-        super(expr.tokenSpan);
-    }
-}
-
-export class VariableDeclarationStatement extends Statement {
-    constructor(
-        public readonly mutable: boolean,
-        public readonly ident: Identifier,
-        public readonly value: Expression,
-        tokenSpan: readonly [number, number]
-    ) {
-        super(tokenSpan);
-    }
-}
-export class FnDeclarationStatement extends Statement {
-    constructor(
-        public ident: Identifier,
-        public params: Identifier[],
-        public body: BlockExpr,
-        tokenSpan: readonly [number, number]
-    ) {
-        super(tokenSpan)
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitProgram(this);
     }
 }
 
@@ -68,12 +40,11 @@ export class Identifier extends AstNode {
     isKeyword(): this is Keyword {
         return this.keyword !== null;
     }
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitIdentifier(this);
+    }
 }
 
 export type Keyword = Identifier & { keyword: Keywords };
 
-/** Whether a statement is allowed in a block. */
-export const statementAllowedInBlock = (stmt: Statement) =>
-    stmt.isOfKind(VariableDeclarationStatement)
-    || stmt.isOfKind(FnDeclarationStatement)
-    || (stmt.isOfKind(ExpressionStatement) && exprCanStandalone(stmt.expr));

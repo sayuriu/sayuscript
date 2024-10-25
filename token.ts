@@ -1,3 +1,5 @@
+import { BidirectionalMap } from "./util.ts";
+
 export enum TokenKind {
     StrLiteral    , // "sayuri"
     RawStrLiteral , // r"sayuri"
@@ -75,6 +77,20 @@ export const specialChars = {
     '?': TokenKind.Question,
     '@': TokenKind.At,
 }
+
+export const specialCharsMapping = new BidirectionalMap(
+    [
+        ...Object.entries(specialChars),
+        ['<<', TokenKind.LtLt],
+        ['>>', TokenKind.GtGt],
+        ['<=', TokenKind.Le],
+        ['>=', TokenKind.Ge],
+        ['==', TokenKind.EqEq],
+        ['!=', TokenKind.BangEq],
+        ['&&', TokenKind.AndAnd],
+        ['||', TokenKind.OrOr],
+    ]
+)
 
 export enum NumberLiteralKind {
     Decimal = 'Dec',

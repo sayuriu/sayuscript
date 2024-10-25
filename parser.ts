@@ -2,11 +2,13 @@ import {
     Program,
     Identifier,
     Keyword,
+} from "./astNodes.ts";
+import {
     VariableDeclarationStatement,
     FnDeclarationStatement,
     ExpressionStatement,
     statementAllowedInBlock,
-} from "./astNodes.ts";
+} from "./statements.ts";
 import {
     Literal,
     Expression,
@@ -298,7 +300,7 @@ export class Parser extends ParserBase {
                     const startToken = this.tokens[stmt.tokenSpan[0]];
                     const endToken = this.tokens[stmt.tokenSpan[1]];
                     throw new ParserError(
-                        `Statement \`${stmt.fullString()}\` is not allowed in a block`,
+                        `Statement \`${stmt.tokenSpan}\` is not allowed in a block`,
                         startToken.span[0],
                         endToken.span[1]
                     );

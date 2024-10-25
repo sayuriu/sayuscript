@@ -3,6 +3,7 @@ import { Token, TokenKind } from "./token.ts";
 import { BidirectionalMap, Nullable, tryFn } from "./util.ts";
 import { resolveKeyword } from './keywords.ts';
 import { AstNode } from "./astNode.ts";
+import type { Visitor } from "./visitor.ts";
 
 export enum Operations {
     Cast         , // Type cast operator (`a as b`)
@@ -68,6 +69,10 @@ export class Operator extends AstNode {
     }
     public get precedence() {
         return OperatorPrecedence(this.operation);
+    }
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitOperator(this);
     }
 }
 

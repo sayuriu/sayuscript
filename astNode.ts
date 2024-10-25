@@ -1,4 +1,9 @@
-export class AstNode {
+import type { Visitor } from "./visitor.ts";
+
+/** Represents a node in the abstract syntax tree.
+ * This is the base class for all AST nodes.
+*/
+export abstract class AstNode {
     constructor(
         /** The token span of this node.
          * This span is represented as `[startTokenPos, endTokenPos)`.
@@ -11,4 +16,7 @@ export class AstNode {
 	isOfKind<T extends AstNode>(other: new(...args: any[]) => T): this is T {
 		return this instanceof other;
 	}
+
+    /** Accepts a visitor to traverse this node. */
+    abstract accept<T>(visitor: Visitor<T>): T;
 }

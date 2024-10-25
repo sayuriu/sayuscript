@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { ExpressionStatement, Identifier, Statement, VariableDeclarationStatement } from "../astNodes.ts";
+import { Identifier } from "../astNodes.ts";
 import { Expression, BinaryExpr, UnaryExpr, Literal, FnCallExpr, TupleExpr, FnExpr, BlockExpr } from "../expression.ts";
 import { Keywords, KeywordMapping } from "../keywords.ts";
 import { Operator, Operations, OperationMapping } from "../operators.ts";
@@ -7,6 +7,7 @@ import { Parser } from "../parser.ts";
 import { TokenKind, Token, NumberLiteralKind, NumberToken } from "../token.ts";
 import { Tokenizer } from "../tokenizer.ts";
 import type { Nullable } from "../util.ts";
+import { VariableDeclarationStatement, ExpressionStatement, Statement } from "../statements.ts";
 
 export function token(
     kind: TokenKind,

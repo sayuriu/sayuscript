@@ -5,12 +5,13 @@ As of now, only the generation of AST is available.
 For current grammar structure, see `syntax.actual` file.
 
 ## Usage
+To see help menu, run `main.ts` without any arguments.
 ```
-deno run --allow-read main.ts --test <relative/path/to/script/file>
+deno run main.ts [options] <path/to/file>
 ```
 eg.
 ```
-deno run --allow-read main.ts --test test.sayu
+deno run main.ts parse test.sayu
 ```
 
 ## Testing

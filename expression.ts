@@ -1,12 +1,15 @@
-import { Identifier, Statement } from "./astNodes.ts";
+import { Identifier } from "./astNodes.ts";
 import { AstNode } from "./astNode.ts";
 import { Operations, Operator } from "./operators.ts";
 import { TokenKind, Token, LiteralTokenTypes } from "./token.ts";
 import { Nullable } from './util.ts';
+import type { Statement } from "./statements.ts";
+import type { Visitor } from "./visitor.ts";
 
-/** Represents an expression in the language. */
-export class Expression extends AstNode {}
+/** Represents an generic expression in the language. */
+export abstract class Expression extends AstNode {}
 
+/** Represents a literal expression, eg. `1`, `2.0`, `"hello"`. */
 export class Literal extends Expression {
     /** The literal kind. */
     public readonly kind: TokenKind;
@@ -23,8 +26,8 @@ export class Literal extends Expression {
         this.tokenPos = token.tokenPos;
     }
 
-    override toString() {
-        return `${TokenKind[this.kind]}(${this.value})`;
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitLiteral(this);
     }
 }
 
@@ -33,6 +36,10 @@ export class BinaryExpr extends Expression {
 	constructor(public left: Expression, public operator: Operator, public right: Expression) {
 		super([left.tokenSpan[0], right.tokenSpan[1]]);
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitBinary(this);
+    }
 }
 
 /** Represents a unary expression (as `<op> a`). */
@@ -40,6 +47,10 @@ export class UnaryExpr extends Expression {
 	constructor(public operator: Operator, public expr: Expression) {
 		super([operator.tokenSpan[0], expr.tokenSpan[1]]);
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitUnary(this);
+    }
 }
 
 /** Represents a block expression. */
@@ -55,6 +66,10 @@ export class BlockExpr extends Expression {
 		super([firstStmt.tokenSpan[0], lastStmt.tokenSpan[1]]);
 		this.hasTailingExpr = lastStmt instanceof Expression;
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitBlock(this);
+    }
 }
 
 /** Represents a function declaration expression.
@@ -84,6 +99,10 @@ export class FnExpr extends Expression {
     ) {
 		super(tokenSpan);
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitFn(this);
+    }
 }
 
 /** Represents a function call expression. */
@@ -95,6 +114,10 @@ export class FnCallExpr extends Expression {
     ) {
 		super(tokenSpan);
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitFnCall(this);
+    }
 }
 
 /** Represents a tuple expression. */
@@ -105,6 +128,10 @@ export class TupleExpr extends Expression {
 	) {
 		super(tokenSpan);
 	}
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitTuple(this);
+    }
 }
 
 export const PREC_PREFIX = 50;

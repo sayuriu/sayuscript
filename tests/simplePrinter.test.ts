@@ -63,8 +63,8 @@ Deno.test("AstPrinter reconstructs source code", () => {
     const ast2Json = JSON.parse(JSON.stringify(ast2));
 
     assertEquals(
-        recursivelyRemoveFields(ast1Json, ["tokenSpan", "tokenPos"]),
-        recursivelyRemoveFields(ast2Json, ["tokenSpan", "tokenPos"]),
+        recursivelyRemoveFields(ast1Json, ["tokenSpan"]),
+        recursivelyRemoveFields(ast2Json, ["tokenSpan"]),
         "Reconstructed AST does not match original AST"
     );
 });

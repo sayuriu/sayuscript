@@ -19,4 +19,8 @@ export abstract class AstNode {
 
     /** Accepts a visitor to traverse this node. */
     abstract accept<T>(visitor: Visitor<T>): T;
+
+    public fullString() {
+        return `${this.constructor.name} [${this.tokenSpan[0]} -> ${this.tokenSpan[1]})`;
+    }
 }

@@ -16,5 +16,5 @@ deno run main.ts parse example.sayu
 
 ## Testing
 ```
-deno test ./tests
+deno test
 ```

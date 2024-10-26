@@ -89,7 +89,7 @@ function printTokens(tokens: Token[]) {
     if (options.json) {
         console.log(JSON.stringify(tokens, null, 4));
     } else {
-        for (const token of tokenizer) {
+        for (const token of tokens) {
             if (options.verbose) {
                 console.log(token.fullString());
             }

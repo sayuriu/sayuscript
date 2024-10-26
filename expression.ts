@@ -15,7 +15,6 @@ export class Literal extends Expression {
     public readonly kind: TokenKind;
     /** Raw content of the literal. */
     public readonly value: string;
-    public readonly tokenPos: number;
     constructor(token: Token) {
         if (!LiteralTokenTypes.includes(token.type)) {
             throw new Error(`Expected a literal token, got \`${TokenKind[token.type]}\``);
@@ -23,7 +22,6 @@ export class Literal extends Expression {
         super([token.tokenPos, token.tokenPos + 1]);
         this.kind = token.type;
         this.value = token.content;
-        this.tokenPos = token.tokenPos;
     }
 
     override accept<T>(visitor: Visitor<T>): T {

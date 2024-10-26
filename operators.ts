@@ -54,6 +54,7 @@ export const OperationMapping = new BidirectionalMap<Operations, TokenKind | Key
     [Operations.Not           , TokenKind.Bang],
 ]);
 
+/** Represents an operator in the language. */
 export class Operator extends AstNode {
     public readonly operation: Operations;
     constructor(token: Token) {

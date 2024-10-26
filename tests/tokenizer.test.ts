@@ -90,6 +90,26 @@ for (const { input, expected } of generalCases) {
     });
 }
 
+const invalidCharCases = [
+    testCase(`'`, "Unterminated char literal"),
+    testCase(`'a`, "Unterminated char literal"),
+    testCase(`'\\`, "Unterminated char literal"),
+    testCase(`'\\x`, "Invalid hex escape sequence \`\\x\`"),
+    testCase(`'\\u`, "Invalid unicode escape sequence \`\\u\`"),
+    testCase(`'\\u'`, "Invalid unicode escape sequence \`\\u'\`"),
+    testCase(`'\\u1g`, "Invalid unicode escape sequence \`\\u1g\`"),
+    testCase(`'\\u{`, "Invalid extended unicode escape sequence \`\\u{\`"),
+    testCase(`'\\u{1'`, "Invalid extended unicode escape sequence \`\\u{1'\`"),
+    testCase(`'\\u{1g`, "Invalid extended unicode escape sequence \`\\u{1g\`"),
+]
+for (const { input, expected } of invalidCharCases) {
+    Deno.test(`Tokenizer.tokenize() throws error for invalid char literal \`${input}\``, () => {
+        assertThrows(() => {
+            new Tokenizer(input).tokenize();
+        }, LexerError, expected);
+    });
+}
+
 const invalidFloatCases = [
     "1e",
     "1e+",

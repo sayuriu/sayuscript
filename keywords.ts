@@ -1,4 +1,4 @@
-import { type Nullable, tryFn } from "./util.ts";
+import { tryWrapper } from "./util.ts";
 import { BidirectionalMap } from "./util.ts";
 
 export enum Keywords {
@@ -22,6 +22,5 @@ export function resolveKeyword(kw: string): Keywords {
     return resolved;
 }
 
-export const tryResolveKeyword = (kw: string): Nullable<Keywords> =>
-    tryFn(() => resolveKeyword(kw));
+export const tryResolveKeyword = tryWrapper(resolveKeyword);
 

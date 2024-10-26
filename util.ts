@@ -3,6 +3,7 @@ export type Nullable<T> = T | null;
 export const isSpecialChar = (c: Nullable<string>) => c && c.match(/[`@"'\(\)\{\}\[\];,\.:\=\+\-\*\/\%\!\<\>\&\|\^\~\?]/)
 export const isWhitespace = (c: Nullable<string>) => c && c.match(/\s/)
 export const isDigit = (c: Nullable<string>) => c && c.match(/\d/)
+export const isHexDigit = (c: Nullable<string>) => c && c.match(/[0-9a-fA-F]/)
 export const isAlpha = (c: Nullable<string>) => c && c.match(/[a-zA-Z_]/)
 export const isAlphaNumeric = (c: Nullable<string>) => c && c.match(/[a-zA-Z0-9_]/)
 
@@ -10,13 +11,19 @@ export const todo = (msg: string) => {
 	throw new Error(`TODO: ${msg}`);
 };
 
-export const tryFn = <T>(fn: () => T): Nullable<T> => {
-	try {
-		return fn();
-	} catch {
-		return null;
-	}
-}
+/** Makes a function return `null` instead if it throws an error. */
+// deno-lint-ignore no-explicit-any
+export function tryWrapper<F extends (...args: any) => any>(fn: F):
+    (...args: Parameters<F>) => Nullable<ReturnType<F>>
+    {
+		return (...args) => {
+            try {
+                return fn(...args);
+            } catch {
+                return null;
+            }
+        }
+    }
 
 export class BidirectionalMap<K, V> {
 	private readonly map: Map<K, V> = new Map();

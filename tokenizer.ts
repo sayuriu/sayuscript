@@ -1,5 +1,5 @@
 import { TokenKind, specialChars, NumberLiteralKind, NumberToken, Token } from "./token.ts";
-import { Nullable, isWhitespace, isSpecialChar, isDigit, isAlpha, isAlphaNumeric } from "./util.ts";
+import { Nullable, isWhitespace, isSpecialChar, isDigit, isAlpha, isAlphaNumeric, isHexDigit } from "./util.ts";
 
 export class Tokenizer {
     /** The current cursor position in the source string. */
@@ -131,33 +131,47 @@ export class Tokenizer {
             if (this.currentChar === 'x')
             {
                 // we take 2 more
-                buffer += this.nextChar() ?? '';
-                buffer += this.nextChar() ?? '';
+                for (let i = 0; i < 2; i++) {
+                    c = this.nextChar() ?? '';
+                    if (!isHexDigit(c)) {
+                        throw new LexerError(`Invalid hex escape sequence \`${buffer + c}\``, this.currentLine, this.lineCursor);
+                    }
+                    buffer += c;
+                }
             }
-            else if (this.currentChar === 'u') {
+            // * Have to upcast the type since TS compiler isn't aware
+            // * of `this.currentChar`'s value changing after this check,
+            // * so it's still `"u"` instead of `string`
+            else if (this.currentChar === 'u' as string) {
                 c = this.nextChar() ?? '';
                 buffer += c;
                 if (c === '{') {
-                    while (!this.eof() && (c = this.nextChar())) {
-                        if (c === '}' || c === '\n' || c === '\r')
+                    this.advance();
+                    do {
+                        const c = this.currentChar ?? '';
+                        if (c === '}') {
+                            buffer += c;
                             break;
+                        }
+                        if (!isHexDigit(c)) {
+                            throw new LexerError(`Invalid extended unicode escape sequence \`${buffer + c}\``, this.currentLine, this.lineCursor);
+                        }
                         buffer += c;
-                    }
-                    buffer += c;
+                    } while (this.nextChar())
                 } else {
-                    let i = 0;
-                    while (!this.eof() && (c = this.nextChar())) {
-                        if (++i === 3 || c === '\n' || c === '\r')
-                            break;
+                    for (let i = 0; i < 3; i++) {
+                        c = this.nextChar() ?? '';
+                        if (!isHexDigit(c)) {
+                            throw new LexerError(`Invalid unicode escape sequence \`${buffer + c}\``, this.currentLine, this.lineCursor);
+                        }
                         buffer += c;
                     }
-                    buffer += c;
                 }
             }
         }
         this.advance();
         if (this.currentChar !== "'") {
-            throw new LexerError(`Invalid character literal`, this.currentLine, this.lineCursor);
+            throw new LexerError(`Unterminated char literal`, this.currentLine, this.lineCursor);
         }
         this.advance();
         return new Token(TokenKind.CharLiteral, buffer, [startPos, this.cursor], this.tokenCounter++);

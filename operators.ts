@@ -1,6 +1,6 @@
 import { Keywords } from "./keywords.ts";
 import { Token, TokenKind } from "./token.ts";
-import { BidirectionalMap, Nullable, tryFn } from "./util.ts";
+import { BidirectionalMap, Nullable, tryWrapper } from "./util.ts";
 import { resolveKeyword } from './keywords.ts';
 import { AstNode } from "./astNode.ts";
 import type { Visitor } from "./visitor.ts";
@@ -81,8 +81,7 @@ export const constructOperator = (token: Token): Operator => {
    return new Operator(token);
 }
 
-export const tryConstructOperator = (token: Token): Nullable<Operator> =>
-    tryFn(() => constructOperator(token));
+export const tryConstructOperator = tryWrapper(constructOperator);
 
 export const resolveOperation = (op: TokenKind | Keywords): Operations => {
     const resolved = OperationMapping.getReverse(op);
@@ -92,8 +91,7 @@ export const resolveOperation = (op: TokenKind | Keywords): Operations => {
     return resolved;
 }
 
-export const tryResolveOperation = (op: TokenKind | Keywords): Nullable<Operations> =>
-    tryFn(() => resolveOperation(op));
+export const tryResolveOperation = tryWrapper(resolveOperation)
 
 
 export const OperatorPrecedence = (op: Operations): Nullable<number> => {

@@ -11,11 +11,11 @@ VariableDeclarationStatement is
 
 FunctionDeclarationStatement is
 	(
-		"action"
+		("action" | "compute")
 		Ident fnName
-		"("
+		LParen
 			ParameterList
-		")"
+		RParen
 		"->" BlockExpr
 	)
 
@@ -24,11 +24,12 @@ ExprStatement is
 
 StandaloneExpr is
 	FnCallExpr
+	or ImmediateCallExpr
 	or BlockExpr
 	or BinaryExpr(BinaryOperator(Eq))
 
 ParameterList is
-	Ident ("," Ident)*
+	Ident (Coma Ident)*
 
 Expr is
 	UnaryExpr
@@ -41,16 +42,19 @@ Expr is
 	or ParenExpr
 
 FnExpr is (
-	"action"
+	("action" | "compute")
 	Ident? fnName // might force anon fn have no name
-	"("
+	LParen
 		ParameterList
-	")"
-	"->" BlockExpr
+	RParen
+	"->" Expr
 )
 
 FnCallExpr is
-	Ident "(" (Expr ("," Expr)*)? ")"
+	Ident LParen (Expr (Coma Expr)*)? RParen
+
+ImmediateCallExpr is
+	Expr LParen (Expr (Coma Expr)*)? RParen
 
 UnaryExpr is
 	UnaryOperator PrimaryExpr
@@ -64,10 +68,10 @@ PrimaryExpr is
 	or GroupedExpr
 
 TupleExpr is
-	"(" (Expr ("," Expr)*)? ")"
+	LParen (Expr (Coma Expr)*)? RParen
 
 ParenExpr is
-	"(" Expr ")"
+	LParen Expr RParen
 
 BlockExpr is
 	("{" Statement* Expr "}")

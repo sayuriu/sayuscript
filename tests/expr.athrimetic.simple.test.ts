@@ -54,6 +54,11 @@ const invalidCases = [
 for (const [input, expectedErrorMessage] of invalidCases) {
     const tokens = new Tokenizer(input).tokenize();
     const parser = new Parser(tokens);
+    try {
+        new Parser(tokens).Expression();
+    } catch (e) {
+        console.log(e);
+    }
     Deno.test(`parser.Expression() throws error for invalid expression '${input}'`, () => {
         assertThrows(() => {
             parser.Expression();

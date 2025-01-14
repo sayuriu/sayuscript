@@ -1,18 +1,18 @@
 import { assertEquals } from "@std/assert";
 import { Identifier } from "../astNodes.ts";
-import { Expression, BinaryExpr, UnaryExpr, Literal, FnCallExpr, TupleExpr, FnExpr, BlockExpr } from "../expression.ts";
+import { Expression, BinaryExpr, UnaryExpr, Literal, FnCallExpr, TupleExpr, FnExpr, BlockExpr, ImmediateCallExpr } from "../expression.ts";
 import { Keywords, KeywordMapping } from "../keywords.ts";
 import { Operator, Operations, OperationMapping } from "../operators.ts";
 import { Parser } from "../parser.ts";
 import { TokenKind, Token, NumberLiteralKind, NumberToken } from "../token.ts";
 import { Tokenizer } from "../tokenizer.ts";
-import type { Nullable } from "../util.ts";
-import { VariableDeclarationStatement, ExpressionStatement, Statement } from "../statements.ts";
+import type { CharSpan, Nullable, TokenSpan } from "../util.ts";
+import { VariableDeclarationStatement, ExpressionStatement, Statement, FnKind } from "../statements.ts";
 
 export function token(
     kind: TokenKind,
     content: string,
-    span: readonly [number, number],
+    span: CharSpan,
     tokenPos: number
 ) {
     return new Token(kind, content, span, tokenPos);
@@ -41,21 +41,21 @@ export function ident(name: string, startPos = 0, tokenPos = 0) {
     return new Identifier(token(TokenKind.Ident, name, [startPos, startPos + name.length], tokenPos));
 }
 
-export function op(operator: Operations, positionSpan: [number, number], tokenPos = 0) {
+export function op(operator: Operations, tokenSpan: TokenSpan, tokenPos = 0) {
     const reversed = OperationMapping.get(operator);
     if (!reversed) {
         throw new Error(`Could not resolve operator ${Operations[operator]}`);
     }
     return new Operator(
         reversed in Keywords ?
-            token(TokenKind.Ident, KeywordMapping.get(reversed as Keywords)!, positionSpan, tokenPos)
-            : token(reversed as TokenKind, TokenKind[reversed], positionSpan, tokenPos)
+            token(TokenKind.Ident, KeywordMapping.get(reversed as Keywords)!, tokenSpan, tokenPos)
+            : token(reversed as TokenKind, TokenKind[reversed], tokenSpan, tokenPos)
     )
 }
 
 export const lit = (token: Token) => new Literal(token);
 export const tuple =
-    (exprs: Expression[], tokenSpan: [number, number]) =>
+    (tokenSpan: TokenSpan, exprs: Expression[]) =>
     new TupleExpr(exprs, tokenSpan);
 export const unary = (operator: Operator, expr: Expression) => new UnaryExpr(operator, expr);
 export const binary =
@@ -63,18 +63,21 @@ export const binary =
     new BinaryExpr(left, operator, right)
 
 export const fn =
-    (ident: Nullable<Identifier>, params: Identifier[], body: BlockExpr | Expression, tokenSpan: [number, number]) =>
-    new FnExpr(ident, params, body, tokenSpan);
+    (tokenSpan: TokenSpan, kind: FnKind, ident: Nullable<Identifier>, params: Identifier[], body: BlockExpr | Expression) =>
+    new FnExpr(ident, params, body, tokenSpan, kind);
 export const call =
-    (ident: Identifier, args: Expression[], tokenSpan: [number, number]) =>
+    (tokenSpan: TokenSpan, ident: Identifier, args: Expression[]) =>
     new FnCallExpr(ident, args, tokenSpan);
+export const immCall =
+    (tokenSpan: TokenSpan, fnValue: Expression, args: Expression[]) =>
+    new ImmediateCallExpr(fnValue, args, tokenSpan);
 
-export const varStmt = (mutable: boolean, ident: Identifier, value: Expression, tokenSpan: [number, number]) =>
+export const varStmt = (tokenSpan: TokenSpan, mutable: boolean, ident: Identifier, value: Expression) =>
     new VariableDeclarationStatement(mutable, ident, value, tokenSpan);
 
 export const exprStmt = (expr: Expression) => new ExpressionStatement(expr);
 
-export const block = (body: (Statement | Expression)[]) => new BlockExpr(body);
+export const block = (body: (Statement | Expression)[], span: TokenSpan, nonEmpty = false) => new BlockExpr(body, span, nonEmpty);
 
 
 export interface TestCase<T> {

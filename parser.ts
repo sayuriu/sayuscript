@@ -8,6 +8,9 @@ import {
     FnDeclarationStatement,
     ExpressionStatement,
     statementAllowedInBlock,
+    Statement,
+    ReturnStatement,
+    FnKind,
 } from "./statements.ts";
 import {
     Literal,
@@ -29,6 +32,7 @@ import {
 import { Token, TokenKind, LiteralTokenTypes } from "./token.ts";
 import { Keywords, tryResolveKeyword } from './keywords.ts';
 import { todo, Nullable } from "./util.ts";
+import { ImmediateCallExpr } from "./expression.ts";
 
 export class ParserError extends Error {
     constructor(message: string, public startPos: number, public endPos: number) {
@@ -45,9 +49,10 @@ enum Restriction {
 export abstract class ParserBase {
     /** The current cursor position in the token stream. */
     protected cursor = 0;
+    private readonly EOF = new Token(TokenKind.Eof, "", [0, 0], 0);
     /** The token that is currently being visited. */
     get currentToken() {
-        return this.tokens[this.cursor];
+        return this.tokens[this.cursor] ?? this.EOF;
     }
     /* The token stream. */
     protected abstract tokens: Token[];
@@ -66,7 +71,7 @@ export abstract class ParserBase {
 
     /** Checks if the cursor has reached the end of the token stream. */
     eof() {
-        return this.currentToken.type === TokenKind.Eof;
+        return this.cursor >= this.tokens.length - 1;
     }
 
     /** Looks ahead in the stream. */
@@ -107,7 +112,7 @@ export abstract class ParserBase {
     /**
      * Grabs the current token and performs a type check against `types`.
      *
-     * Advances the cursor and returns the consumed token if it matches, and returns false otherwise.
+     * Advances the cursor and returns the consumed token if it matches, and returns `false` otherwise.
      * */
     consume(...types: Array<TokenKind | Array<TokenKind>>): Nullable<Token> {
         const token = this.currentToken;
@@ -145,15 +150,16 @@ export class Parser extends ParserBase {
         return new Program(statements);
     }
 
-    KeywordStatement(kw: Identifier, isInsideBlock = false)
+    KeywordStatement(kw: Identifier, isInsideBlock = false): Nullable<Statement>
     {
         const lastPos = kw.tokenSpan[0];
         switch (kw.keyword) {
             case Keywords.Let:
                 return this.VariableDeclarationStatement();
             case Keywords.Action:
+            case Keywords.Compute:
                 try {
-                    return this.FnDeclarationStatement();
+                    return this.FnDeclarationStatement(kw);
                 } catch (e) {
                     if (!isInsideBlock) {
                         throw e;
@@ -162,13 +168,24 @@ export class Parser extends ParserBase {
                     this.cursor = lastPos;
                     return null;
                 }
+            case Keywords.Return: {
+                const expr = this.Expression();
+                if (!expr) {
+                    throw new ParserError(
+                        `Expected an expression for return statement, got \`${this.currentToken}\``,
+                        ...this.currentToken.span,
+                    );
+                }
+                this.expect(TokenKind.Semi);
+                return new ReturnStatement(expr);
+            }
         }
         const badToken = this.tokens[kw.tokenSpan[0]];
         throw new ParserError(
             `Unexpected keyword \`${kw.keyword}\` in statement`,
             ...badToken.span,
         );
-}
+    }
 
     VariableDeclarationStatement() {
         const letKw = this.lookBehind();
@@ -196,14 +213,14 @@ export class Parser extends ParserBase {
         );
     }
 
-    FnDeclarationStatement() {
-        const kw = this.lookBehind();
-        const fnExpr = this.FnExpression(true);
+    FnDeclarationStatement(identKw: Identifier) {
+        const fnExpr = this.FnExpression(identKw, true);
         return new FnDeclarationStatement(
             fnExpr.ident!,
             fnExpr.params,
             fnExpr.body as BlockExpr,
-            [kw.tokenPos, fnExpr.tokenSpan[1]]
+            [identKw.tokenSpan[0], fnExpr.tokenSpan[1]],
+            identKw.keyword === Keywords.Action ? FnKind.Action : FnKind.Compute
         );
     }
 
@@ -252,7 +269,7 @@ export class Parser extends ParserBase {
     TupleExpression(first: Expression, lParen: Token): TupleExpr
     {
         const expressions = [first];
-        while (!this.currentlyIs(TokenKind.RParen)) {
+        while (true) {
             const expression = this.Expression();
             if (!expression) {
                 break;
@@ -291,6 +308,7 @@ export class Parser extends ParserBase {
     }
 
     BlockExpression(): BlockExpr {
+        const lBrace = this.currentToken;
         this.expect(TokenKind.LBrace);
         const statements = [];
         while (!this.currentlyIs(TokenKind.RBrace)) {
@@ -315,12 +333,15 @@ export class Parser extends ParserBase {
             statements.push(tailingExpr);
         }
         this.expect(TokenKind.RBrace);
-        return new BlockExpr(statements);
+        return new BlockExpr(statements, [lBrace.tokenPos, this.cursor]);
     }
 
-    FnExpression(standalone = false): FnExpr
+    /** Parses the next function expression.
+     * If `standalone` is set to `true`, then the function must have a name.
+     *
+     */
+    FnExpression(identKw: Identifier, standalone = false): FnExpr
     {
-        const kw = this.lookBehind();
         const ident = this.consume(TokenKind.Ident);
         if (standalone && !ident) {
             throw new ParserError(
@@ -336,7 +357,7 @@ export class Parser extends ParserBase {
                 ...ident!.span,
             );
         }
-        const fnName = ident !== null ? new Identifier(ident) : null;
+        const fnName: Nullable<Identifier> = ident !== null ? new Identifier(ident) : null;
         const params: Identifier[] = [];
 
         this.expect(TokenKind.LParen);
@@ -349,43 +370,76 @@ export class Parser extends ParserBase {
         }
         this.expect(TokenKind.RParen);
         this.expect(TokenKind.Arrow);
-        const body = this.BlockExpression();
+        // TODO: Error with context
+        const body = standalone ? this.BlockExpression() : this.Expression();
+        if (!body) {
+            throw new ParserError(
+                `Expected an expression for function body, got \`${this.currentToken}\``,
+                ...this.currentToken.span,
+            );
+        }
         return new FnExpr(
             fnName,
             params,
             body,
-            [kw.tokenPos, this.cursor]
+            [identKw.tokenSpan[0], this.cursor],
+            identKw.keyword === Keywords.Action ? FnKind.Action : FnKind.Compute
         );
     }
 
+    /** Parses a function call expression, such as
+     * ```sayu
+     * print(1, 2, "amogus")
+     * ```
+    */
     FnCallExpression(ident: Identifier): Expression
     {
         const args = [];
-        while (!this.currentlyIs(TokenKind.RParen)) {
+        // LParen Expr (Comma Expr)* RParen
+        do {
             const arg = this.Expression();
             if (!arg) {
-                break;
+                break; // no expr, invalid state
             }
             args.push(arg);
-            if (this.consume(TokenKind.Comma)) {
-                continue;
-            }
-            break;
-        }
-        const rParen = this.currentToken;
+        } while (this.consume(TokenKind.Comma));
         this.expect(TokenKind.RParen);
         return new FnCallExpr(
             ident,
             args,
-            [ident.tokenSpan[0], rParen.tokenPos + 1]
+            [ident.tokenSpan[0], this.cursor]
         );
+    }
+
+    ImmediateCallExpression(fnValue: Expression): Expression {
+        const args = [];
+        // LParen Expr (Comma Expr)* RParen
+        do {
+            const arg = this.Expression();
+            if (!arg) {
+                break; // no expr, invalid state
+            }
+            args.push(arg);
+        } while (this.consume(TokenKind.Comma));
+        this.expect(TokenKind.RParen);
+        const fnCall = new ImmediateCallExpr(
+            fnValue,
+            args,
+            [fnValue.tokenSpan[0], this.cursor]
+        );
+        // ? There exists another call site. Can I make this a DFA?
+        if (this.consume(TokenKind.LParen)) {
+            return this.ImmediateCallExpression(fnCall);
+        }
+        return fnCall;
     }
 
     KeywordExpression(kw: Keyword): Expression
     {
         switch (kw.keyword) {
             case Keywords.Action:
-                return this.FnExpression();
+            case Keywords.Compute:
+                return this.FnExpression(kw);
         }
         const badToken = this.tokens[kw.tokenSpan[0]];
         throw new ParserError(
@@ -432,6 +486,10 @@ export class Parser extends ParserBase {
             }
             this.expect(TokenKind.RParen);
             return expr;
+        }
+        else if (this.consume(TokenKind.LBrace)) {
+            this.retreat();
+            return this.BlockExpression();
         }
         return null;
     }
@@ -506,6 +564,10 @@ export class Parser extends ParserBase {
         }
         while (true)
         {
+            if (this.currentlyIs(TokenKind.LParen)) {
+                this.advance();
+                lhs = this.ImmediateCallExpression(lhs);
+            }
             if (this.currentlyIs(TokenKind.Semi, TokenKind.Eof)) {
                 return lhs;
             }

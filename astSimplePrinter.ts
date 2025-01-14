@@ -1,8 +1,8 @@
 import type { Identifier, Program } from "./astNodes.ts";
-import type { BlockExpr, BinaryExpr, UnaryExpr, FnCallExpr, FnExpr, Literal, TupleExpr } from "./expression.ts";
+import { BlockExpr, type BinaryExpr, type UnaryExpr, type FnCallExpr, type FnExpr, type Literal, type TupleExpr, type ImmediateCallExpr } from "./expression.ts";
 import { Keywords, KeywordMapping } from "./keywords.ts";
 import { OperationMapping, type Operator } from "./operators.ts";
-import type { VariableDeclarationStatement, ExpressionStatement, FnDeclarationStatement } from "./statements.ts";
+import { type VariableDeclarationStatement, type ExpressionStatement, type FnDeclarationStatement, type ReturnStatement, FnKind } from "./statements.ts";
 import type { Visitor } from "./visitor.ts";
 import { specialCharsMapping, TokenKind } from "./token.ts";
 
@@ -28,13 +28,23 @@ export class SimpleAstPrinter implements Visitor<string> {
     visitExpressionStmt(node: ExpressionStatement): string {
         return `${node.expr.accept(this)};`;
     }
+    visitReturnStmt(node: ReturnStatement): string {
+        return `return ${node.expr.accept(this)};`;
+    }
     visitFnDeclaration(node: FnDeclarationStatement): string {
-        return `action ${node.ident.name}(${node.params.map((p) => p.name).join(", ")}) -> ${node.body.accept(this)}`;
+        return [
+            `${node.kind === FnKind.Action ? 'action' : 'compute'}`,
+            ` ${node.ident.accept(this)}`,
+            `(${node.params.map((p) => p.name).join(", ")}) -> `,
+            node.body.accept(this)
+        ].join("");
     }
     visitBlock(node: BlockExpr): string {
+        let out = `{\n`;
         this.padLevel++;
-        const out = `{\n${node.body.map((s) => this.pad() + s.accept(this)).join("\n")}\n}`;
+        out += `${node.body.map((s) => this.pad() + s.accept(this)).join("\n")}`;
         this.padLevel--;
+        out += `\n${this.pad()}}`;
         return out;
     }
     visitBinary(node: BinaryExpr): string {
@@ -46,8 +56,17 @@ export class SimpleAstPrinter implements Visitor<string> {
     visitFnCall(node: FnCallExpr): string {
         return `${node.ident.accept(this)}(${node.args.map((a) => a.accept(this)).join(", ")})`;
     }
+    visitImmediateFnCall(node: ImmediateCallExpr): string {
+        return `(${node.fnValue.accept(this)})(${node.args.map((a) => a.accept(this)).join(", ")})`;
+    }
     visitFn(node: FnExpr): string {
-        return `action(${node.params.map((p) => p.name).join(", ")}) -> ${node.body.accept(this)}`;
+        const body = node.body;
+        return [
+            `${node.kind === FnKind.Action ? 'action' : 'compute'}`,
+            `${node.ident ? ' ' + node.ident.accept(this) : ''}`,
+            `(${node.params.map((p) => p.name).join(", ")}) -> `,
+            body instanceof BlockExpr ? body.accept(this) : `(${body.accept(this)})`
+        ].join("");
     }
     visitTuple(node: TupleExpr): string {
         return `(${node.expressions.map((e) => e.accept(this)).join(", ")})`;

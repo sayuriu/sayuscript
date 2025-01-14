@@ -4,7 +4,7 @@ import { SimpleAstPrinter } from "../astSimplePrinter.ts";
 import { assertEquals } from "@std/assert";
 
 const source = `
-action sumTriple(a, b, c) -> {
+compute sumTriple(a, b, c) -> {
 	let var expr = 1 + (
 		-2
 		+ 3
@@ -27,6 +27,15 @@ action sumTriple(a, b, c) -> {
 		result,
 		float
 			)
+}
+
+action main() -> {
+    let chained =
+        compute(a) ->
+        compute(b) ->
+        compute(c) ->
+        print(a + b + c);
+    (compute(a) -> print(a))("ooga booga")(Stdout);
 }
 `
 
@@ -53,6 +62,7 @@ Deno.test("AstPrinter reconstructs source code", () => {
     const ast1 = parser.parse();
 
     const reconstructed = ast1.accept(new SimpleAstPrinter());
+    console.log(reconstructed);
 
     const parser2 = new Parser(new Tokenizer(reconstructed).tokenize());
     const ast2 = parser2.parse();

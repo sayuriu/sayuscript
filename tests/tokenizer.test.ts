@@ -80,10 +80,10 @@ const generalCases = [
 ];
 
 for (const { input, expected } of generalCases) {
-    const tokens = new Tokenizer(input).tokenize();
+    const tokenizer = new Tokenizer(input);
     Deno.test(`Tokenizer.tokenize() parses '${input}' correctly`, () => {
         for (let i = 0; i < expected.length; i++) {
-            const token = tokens[i];
+            const token = tokenizer.nextToken();
             const expectedToken = expected[i];
             assertEquals(token, expectedToken, `Token ${i} mismatch against expected token`);
         }

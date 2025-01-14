@@ -1,3 +1,4 @@
+import type { TokenSpan } from "./util.ts";
 import type { Visitor } from "./visitor.ts";
 
 /** Represents a node in the abstract syntax tree.
@@ -8,7 +9,7 @@ export abstract class AstNode {
         /** The token span of this node.
          * This span is represented as `[startTokenPos, endTokenPos)`.
         */
-        public readonly tokenSpan: readonly [number, number]
+        public readonly tokenSpan: TokenSpan
     ) {}
 
 	/** Returns whether this node is an instance of the given type. */

@@ -187,7 +187,7 @@ export class Tokenizer {
             } else if (isWhitespace(c) || isSpecialChar(c)) {
                 break;
             } else if (c === '_' && !buffer.endsWith('_')) {
-                    buffer += c;
+                buffer += c;
             } else {
                 throw new LexerError(`Invalid hex literal \`${buffer + c}\``, this.currentLine, this.lineCursor);
             }
@@ -359,6 +359,17 @@ export class Tokenizer {
                 return this.nextToken();
             }
             // TODO: Add block comments, (docstring too)
+            if (this.lookAhead() === '*') {
+                this.advance();
+                while (this.nextChar()) {
+                    if (this.currentChar === '*' && this.lookAhead() === '/') {
+                        this.advance();
+                        this.advance();
+                        break;
+                    }
+                }
+                return this.nextToken();
+            }
             this.advance();
             return this.makeInlineToken(TokenKind.Slash, c);
         }
@@ -492,14 +503,8 @@ export class Tokenizer {
     [Symbol.iterator](): Iterator<Token, Nullable<Token>, undefined> {
         return {
             next: () => {
-                if (this.cursor > this.input.length) {
-                    return { done: true, value: null };
-                }
                 if (this.eof()) {
-                    // This is to squeeze out the Eof at the end
-                    const token = this.nextToken();
-                    this.advance();
-                    return { done: false, value: token };
+                    return { done: true, value: null };
                 }
                 return { done: false, value: this.nextToken() };
             }

@@ -1,4 +1,4 @@
-import { BidirectionalMap } from "./util.ts";
+import { BidirectionalMap, type CharSpan } from "./util.ts";
 
 export enum TokenKind {
     StrLiteral    , // "sayuri"
@@ -120,14 +120,14 @@ export class Token {
          *
          * It is represented as `[start, end)`.
          */
-        public readonly span: readonly [number, number],
+        public readonly span: CharSpan,
         /** The token's order in the token stream. */
         public readonly tokenPos: number
 	) {}
 
 	/** Returns a string representation of the token. */
 	toString() {
-		return `${TokenKind[this.type]}${this.content ? ` ${this.content}` : ''}`;
+		return `${TokenKind[this.type]}${this.content ? ` '${this.content}'` : ''}`;
 	}
 
 	/** Returns the full string representation of the token. */
@@ -143,7 +143,7 @@ export class NumberToken extends Token {
 		/** The mode of the number token. */
 		public readonly mode: NumberLiteralKind,
 		value: string,
-        span: readonly [number, number],
+        span: CharSpan,
         tokenPos: number
 	) {
 		super(type, value, span, tokenPos);

@@ -1,4 +1,13 @@
 export type Nullable<T> = T | null;
+/** Represents a span of tokens/characters in a source file.
+ *
+ * It is represented as `[start, end)`.
+*/
+export type Span = readonly [number, number];
+/** Represents a span of tokens in a source file, exclusive. */
+export type TokenSpan = Span;
+/** Represents a span of characters in a source file, exclusive. */
+export type CharSpan = Span;
 
 export const isSpecialChar = (c: Nullable<string>) => c && c.match(/[`@"'\(\)\{\}\[\];,\.:\=\+\-\*\/\%\!\<\>\&\|\^\~\?]/)
 export const isWhitespace = (c: Nullable<string>) => c && c.match(/\s/)

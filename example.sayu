@@ -1,24 +1,9 @@
-action sumTriple(a, b, c) -> {
-	let var expr = 1 + (
-		-2
-		+ 3
-	) * -4;
-	let result = otherFn(
-		1,
-		(-2
-			+ 3)
-			* -4,
-		-4
-	);
-	let float = -.1 + 2. + 3.e3 + 3e+4 + 1.5e-6;
-	let char = 'a' + 'b' + '\x41' + '\u0041' + '\u{3173f}';
-	let string = "silly" + "string" + r"
-	concatenation
-	";
+action main() -> {
+    let chained =
+        compute(a)
+        -> compute(b)
+        -> compute(c)
+        -> a + b + c;
 
-	print(string);
-	expr * (
-		result,
-		float
-			)
+    print({chained(1)(2)({3})});
 }

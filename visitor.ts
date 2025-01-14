@@ -7,6 +7,7 @@ import type {
     UnaryExpr,
     Literal,
     TupleExpr,
+    ImmediateCallExpr,
 } from "./expression.ts";
 import type { Operator } from "./operators.ts";
 
@@ -14,6 +15,7 @@ import type {
     ExpressionStatement,
     VariableDeclarationStatement,
     FnDeclarationStatement,
+    ReturnStatement,
 } from "./statements.ts"
 
 /** A visitor for the expression nodes of the abstract syntax tree.
@@ -31,6 +33,9 @@ export interface Visitor<VisitResult> {
     /** Visits a function declaration statement. */
     visitFnDeclaration(node: FnDeclarationStatement): VisitResult;
 
+    /** Visits a return statement. */
+    visitReturnStmt(node: ReturnStatement): VisitResult;
+
     /** Visits a block expression. */
     visitBlock(node: BlockExpr): VisitResult;
 
@@ -42,6 +47,9 @@ export interface Visitor<VisitResult> {
 
     /** Visits a function call expression. */
     visitFnCall(node: FnCallExpr): VisitResult;
+
+    /** Visits an immediate function call expression. */
+    visitImmediateFnCall(node: ImmediateCallExpr): VisitResult;
 
     /** Visits a function expression. */
     visitFn(node: FnExpr): VisitResult;

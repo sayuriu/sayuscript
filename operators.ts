@@ -69,7 +69,7 @@ export class Operator extends AstNode {
         return Operations[this.operation];
     }
     public get precedence() {
-        return OperatorPrecedence(this.operation);
+        return operatorPrecedence(this.operation);
     }
 
     override accept<T>(visitor: Visitor<T>): T {
@@ -94,7 +94,7 @@ export const resolveOperation = (op: TokenKind | Keywords): Operations => {
 export const tryResolveOperation = tryWrapper(resolveOperation)
 
 
-export const OperatorPrecedence = (op: Operations): Nullable<number> => {
+export const operatorPrecedence = (op: Operations): Nullable<number> => {
     switch (op) {
         case Operations.Cast:
         	return 14;
@@ -160,3 +160,45 @@ export const BinaryOperators = [
     TokenKind.At,
     TokenKind.Dot,
 ]
+
+/** Represents the associativity of an operator.
+ * (i.e. the order in which operators of the same precedence are evaluated)
+ */
+export enum Associativity {
+    /** Left to right */
+    Left,
+    /** Right to left */
+    Right,
+    /** Can't be chained */
+    None,
+}
+
+export const operatorAssociativity = (op: Operations): Associativity => {
+    switch (op) {
+        case Operations.Cast:
+            return Associativity.Right;
+        case Operations.Multiply:
+        case Operations.Divide:
+        case Operations.Modulus:
+        case Operations.Add:
+        case Operations.Subtract:
+        case Operations.ShiftLeft:
+        case Operations.ShiftRight:
+        case Operations.BitAnd:
+        case Operations.BitXor:
+        case Operations.BitOr:
+        case Operations.Less:
+        case Operations.Greater:
+        case Operations.LessEqual:
+        case Operations.GreaterEqual:
+        case Operations.LEqual:
+        case Operations.LNotEqual:
+        case Operations.LAnd:
+        case Operations.LOr:
+        case Operations.Assign:
+            return Associativity.Left;
+        case Operations.Not:
+            return Associativity.Right;
+    }
+    return Associativity.None;
+}

@@ -2,8 +2,8 @@ import { Identifier } from "./astNodes.ts";
 import { AstNode } from "./astNode.ts";
 import { Operations, Operator } from "./operators.ts";
 import { TokenKind, Token, LiteralTokenTypes } from "./token.ts";
-import { Nullable } from './util.ts';
-import type { Statement } from "./statements.ts";
+import type { Nullable, TokenSpan } from './util.ts';
+import { FnKind, type Statement } from "./statements.ts";
 import type { Visitor } from "./visitor.ts";
 
 /** Represents an generic expression in the language. */
@@ -51,17 +51,22 @@ export class UnaryExpr extends Expression {
     }
 }
 
+type BlockStatementBody =
+    [...Statement[], Expression] // Non-empty block, has a trailing expression
+    | Statement[] // Non-empty block
+    | [Expression] // Single expression
+    | [] // Empty block
+
 /** Represents a block expression. */
 export class BlockExpr extends Expression {
 	/** Whether the block has a trailing expression. */
 	hasTailingExpr = false;
-	constructor(public body: (Statement | Expression)[]) {
-		if (!body.length) {
+	constructor(public body: BlockStatementBody, span: TokenSpan, nonEmpty = false) {
+		if (nonEmpty && !body.length) {
 			throw new Error('BlockExpr must have at least one expression');
 		}
-		const firstStmt = body[0];
 		const lastStmt = body.at(-1)!;
-		super([firstStmt.tokenSpan[0], lastStmt.tokenSpan[1]]);
+		super(span);
 		this.hasTailingExpr = lastStmt instanceof Expression;
 	}
 
@@ -92,8 +97,9 @@ export class FnExpr extends Expression {
 	constructor(
 		public ident: Nullable<Identifier> = null,
 		public params: Identifier[],
-		public body: BlockExpr | Expression,
-        tokenSpan: readonly [number, number]
+		public body: Expression,
+        tokenSpan: TokenSpan,
+        public kind: FnKind = FnKind.Action
     ) {
 		super(tokenSpan);
 	}
@@ -108,7 +114,7 @@ export class FnCallExpr extends Expression {
 	constructor(
 		public ident: Identifier,
 		public args: Expression[],
-        tokenSpan: readonly [number, number]
+        tokenSpan: TokenSpan
     ) {
 		super(tokenSpan);
 	}
@@ -118,11 +124,32 @@ export class FnCallExpr extends Expression {
     }
 }
 
+/** Represents an immediate call expression that follows
+ * the form of
+ * ```
+ * (fnValue)(args)
+ * ```
+ * where `fnValue` is callable.
+*/
+export class ImmediateCallExpr extends Expression {
+    constructor(
+        public fnValue: Expression,
+        public args: Expression[],
+        tokenSpan:TokenSpan
+    ) {
+        super(tokenSpan);
+    }
+
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitImmediateFnCall(this);
+    }
+}
+
 /** Represents a tuple expression. */
 export class TupleExpr extends Expression {
 	constructor(
 		public expressions: Expression[],
-        tokenSpan: readonly [number, number]
+        tokenSpan:TokenSpan
 	) {
 		super(tokenSpan);
 	}
@@ -151,6 +178,7 @@ export const exprPrecedence = (expr: Expression) => {
 export const exprCanStandalone = (expr: Expression) => {
 	const isEitherFnOrBlock = (
 		expr.isOfKind(FnCallExpr)
+        || expr.isOfKind(ImmediateCallExpr)
 		|| expr.isOfKind(BlockExpr)
 	);
 	if (isEitherFnOrBlock) {

@@ -6,6 +6,8 @@ export enum Keywords {
     Var,
     As,
     Action,
+    Compute,
+    Return
 }
 
 export const KeywordMapping = new BidirectionalMap<Keywords, string>([
@@ -13,6 +15,8 @@ export const KeywordMapping = new BidirectionalMap<Keywords, string>([
     [Keywords.Var, "var"],
     [Keywords.As, "as"],
     [Keywords.Action, "action"],
+    [Keywords.Compute, "compute"],
+    [Keywords.Return, "return"]
 ]);
 
 export function resolveKeyword(kw: string): Keywords {
@@ -23,4 +27,3 @@ export function resolveKeyword(kw: string): Keywords {
 }
 
 export const tryResolveKeyword = tryWrapper(resolveKeyword);
-

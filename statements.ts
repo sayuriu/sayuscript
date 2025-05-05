@@ -1,6 +1,7 @@
 import { AstNode } from "./astNode.ts";
 import type { Identifier } from "./astNodes.ts";
-import { type Expression, type BlockExpr, exprCanStandalone } from "./expression.ts";
+import { type Expression, type BlockExpr, exprCanStandalone, PathQualifierExpr } from "./expression.ts";
+import { Token, TokenKind } from "./token.ts";
 import type { TokenSpan } from "./util.ts";
 import type { Visitor } from "./visitor.ts";
 
@@ -37,6 +38,34 @@ export class VariableDeclarationStatement extends Statement {
         return visitor.visitVariableDeclaration(this);
     }
 }
+
+export class ExternImportStatement extends Statement {
+    constructor(
+        public readonly ident: Identifier,
+        public readonly path: Token & { type: TokenKind.StrLiteral },
+        tokenSpan: TokenSpan
+    ) {
+        super(tokenSpan);
+    }
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitExternImport(this);
+    }
+}
+
+export class StaticImportStatement extends Statement {
+    constructor(
+        public readonly path: PathQualifierExpr,
+        tokenSpan: TokenSpan
+    )
+    {
+        super(tokenSpan);
+    }
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitStaticImport(this);
+    }
+}
+
+export type ImportStatement = ExternImportStatement | StaticImportStatement;
 
 export enum FnKind {
     /** A function that performs an action (always returns `Nothing`). */

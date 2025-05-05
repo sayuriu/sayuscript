@@ -1,9 +1,13 @@
-action main() -> {
-    let chained =
-        compute(a)
-        -> compute(b)
-        -> compute(c)
-        -> a + b + c;
+import extern "silly.c" as Silly;
 
-    print({chained(1)(2)({3})});
+import Sayuri::Engine::{
+    Renderer::RenderEngine::{
+        RenderStages,
+        RenderStyle as _RenderStyle
+    },
+    Synthesizer as _Synthesizer
+};
+
+action main() -> {
+    _RenderStyle::Default("a");
 }

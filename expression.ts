@@ -51,6 +51,54 @@ export class UnaryExpr extends Expression {
     }
 }
 
+/** Represents a member expression (as `a.b`). */
+export class MemberExpr extends Expression {
+    constructor(public base: Expression, public member: Identifier) {
+        super([base.tokenSpan[0], member.tokenSpan[1]]);
+    }
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitMember(this);
+    }
+}
+
+export const NAMESPACE_ALL_SYM = Object.freeze(Symbol.for('*'));
+export const NAMESPACE_CURRENT_FILE = Object.freeze(Symbol.for('local'));
+/** Represents a path qualifier expression (as `a::b`). */
+export class PathQualifierExpr extends Expression {
+    constructor(
+        public base: Identifier,
+        public child: (PathQualifierExpr | Identifier | Token)[],
+        public alias: Nullable<Identifier>,
+        public span: TokenSpan
+    ) {
+        if (child instanceof PathQualifierExpr) { /* noop */ }
+        else if (child instanceof Identifier) { /* noop */ }
+        if (child instanceof Token) {
+            if (child.type !== TokenKind.Star) {
+                throw new Error(`Expected a token of type \`${TokenKind[TokenKind.Star]}\`, got \`${TokenKind[child.type]}\``);
+            }
+        }
+        super(span);
+    }
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitPathQualifier(this);
+    }
+}
+
+export class PathExpr extends Expression {
+    constructor(
+        public base: Identifier,
+        public segments: PathQualifierExpr[],
+        tokenSpan: TokenSpan
+    ) {
+        super(tokenSpan);
+    }
+    override accept<T>(visitor: Visitor<T>): T {
+        return visitor.visitPath(this);
+    }
+}
+
+
 type BlockStatementBody =
     [...Statement[], Expression] // Non-empty block, has a trailing expression
     | Statement[] // Non-empty block

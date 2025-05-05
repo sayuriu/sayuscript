@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
 import { TokenKind } from "../token.ts";
-import { LexerError, Tokenizer } from "../tokenizer.ts";
+import { LexerError, CompilerTokenizer } from "../tokenizer.ts";
 import { dec, float, hex, testCase, token } from "./util.ts";
 
 const generalCases = [
@@ -80,7 +80,7 @@ const generalCases = [
 ];
 
 for (const { input, expected } of generalCases) {
-    const tokenizer = new Tokenizer(input);
+    const tokenizer = new CompilerTokenizer(input);
     Deno.test(`Tokenizer.tokenize() parses '${input}' correctly`, () => {
         for (let i = 0; i < expected.length; i++) {
             const token = tokenizer.nextToken();
@@ -105,7 +105,7 @@ const invalidCharCases = [
 for (const { input, expected } of invalidCharCases) {
     Deno.test(`Tokenizer.tokenize() throws error for invalid char literal \`${input}\``, () => {
         assertThrows(() => {
-            new Tokenizer(input).tokenize();
+            new CompilerTokenizer(input).tokenize();
         }, LexerError, expected);
     });
 }
@@ -121,7 +121,7 @@ const invalidFloatCases = [
 for (const input of invalidFloatCases) {
     Deno.test(`Tokenizer.tokenize() throws error for invalid exponent '${input}'`, () => {
         assertThrows(() => {
-            new Tokenizer(input).tokenize();
+            new CompilerTokenizer(input).tokenize();
         }, LexerError, `Invalid exponent literal \`${input}\``);
     });
 }
@@ -143,7 +143,7 @@ const prefix: Record<string, string> = {
 for (const input of invalidPrefixCases) {
     Deno.test(`Tokenizer.tokenize() throws error for invalid prefix '${input}'`, () => {
         assertThrows(() => {
-            new Tokenizer(input).tokenize();
+            new CompilerTokenizer(input).tokenize();
         }, LexerError, `Invalid ${prefix[input.substring(0, 2)]} literal \`${input}\``);
     });
 }

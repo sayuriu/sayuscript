@@ -1,8 +1,9 @@
 import { assertThrows } from "@std/assert/throws";
 import { Operations } from "../operators.ts";
-import { Parser, ParserError } from "../parser.ts";
-import { Tokenizer } from "../tokenizer.ts";
+import { DefaultParser } from "../defaultParser.ts";
+import { CompilerTokenizer } from "../tokenizer.ts";
 import { testCase, testValidCasesForExprParser, binary, lit, dec, op, float, unary } from "./util.ts";
+import { ParserError } from "../parser.ts";
 
 const validCases = [
     testCase(
@@ -52,10 +53,10 @@ const invalidCases = [
 ];
 
 for (const [input, expectedErrorMessage] of invalidCases) {
-    const tokens = new Tokenizer(input).tokenize();
-    const parser = new Parser(tokens);
+    const tokens = new CompilerTokenizer(input).tokenize();
+    const parser = new DefaultParser(tokens);
     try {
-        new Parser(tokens).Expression();
+        new DefaultParser(tokens).Expression();
     } catch (e) {
         console.log(e);
     }

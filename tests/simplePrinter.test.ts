@@ -1,5 +1,5 @@
-import { Tokenizer } from "../tokenizer.ts";
-import { Parser } from "../parser.ts";
+import { CompilerTokenizer } from "../tokenizer.ts";
+import { DefaultParser } from "../defaultParser.ts";
 import { SimpleAstPrinter } from "../astSimplePrinter.ts";
 import { assertEquals } from "@std/assert";
 
@@ -58,13 +58,13 @@ function recursivelyRemoveFields(obj: any, fields: string[]): object {
 
 
 Deno.test("AstPrinter reconstructs source code", () => {
-    const parser = new Parser(new Tokenizer(source).tokenize());
+    const parser = new DefaultParser(new CompilerTokenizer(source).tokenize());
     const ast1 = parser.parse();
 
     const reconstructed = ast1.accept(new SimpleAstPrinter());
     console.log(reconstructed);
 
-    const parser2 = new Parser(new Tokenizer(reconstructed).tokenize());
+    const parser2 = new DefaultParser(new CompilerTokenizer(reconstructed).tokenize());
     const ast2 = parser2.parse();
 
     // We will remove the token spans from the ASTs before comparing them,

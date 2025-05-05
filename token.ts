@@ -1,50 +1,119 @@
-import { BidirectionalMap, type CharSpan } from "./util.ts";
+import { BidirectionalMap, escapeSpecialChar, type CharSpan } from "./util.ts";
+
+export enum CommentKind {
+    Line,
+    LineDoc,
+    Block,
+}
 
 export enum TokenKind {
-    StrLiteral    , // "sayuri"
-    RawStrLiteral , // r"sayuri"
-    CharLiteral   , // 'a'
-    IntLiteral    , // 123, 123_456, 123, 0b1010, 0o123,
-    FloatLiteral  , // 1.23, 1.23e10, 1.23e-10
-    Ident         , // sayu
-    Quote         , // '
-    DoubleQuote   , // "
-    BackQuote     , // `
-    LParen        , // (
-    RParen        , // )
-    LBrace        , // {
-    RBrace        , // }
-    LBracket      , // [
-    RBracket      , // ]
-    Semi          , // ;
-    Comma         , // ,
-    Dot           , // .
-    Colon         , // :
-    Eq            , // =
-    Plus          , // +
-    Minus         , // -
-    Star          , // *
-    Slash         , // /
-    Percent       , // %
-    Bang          , // !
-    Lt            , // <
-    LtLt          , // <<
-	Le 		  	  , // <=
-    Gt            , // >
-    GtGt          , // >>
-	Ge 			  , // >=
-	EqEq 		  , // ==
-	BangEq 		  , // !=
-    And           , // &
-	AndAnd 		  , // &&
-    Or            , // |
-	OrOr 		  , // ||
-    Arrow         , // ->
-    Caret         , // ^
-    Tilde         , // ~
-    Question      , // ?
-    At            , // @
-    Eof           , // End of file
+    /** Represents any contiguous whitespace sequence. */
+    Whitespace,
+    /** Represents a line comment. */
+    LineComment,
+    /** Represents a block comment. */
+    BlockComment,
+    /** Represents a string literal, such as `"sayuri"`. */
+    StrLiteral,
+    /** Represents a raw string literal, such as `r"sayuri"`.
+     *
+     * Raw string literals do not need escaping.
+     */
+    RawStrLiteral,
+    /** Represents a character literal, such as `'a'`. */
+    CharLiteral,
+    /** Represents an integer literal.
+     *
+     * - Normal: `123`
+     * - Hexadecimal: `0x1310`
+     * - Binary: `0b1010`
+     * - Octal: `0o123`
+     *
+     * Integers can have delimiters (underscores) between them, such as `123_456`.
+     * */
+    IntLiteral,
+    /** Represents float literal, such as `1.23, 1.23e10, 1.23e-10`. */
+    FloatLiteral,
+    /** Represents an identifier. */
+    Ident,
+    /** Represents a single quote (`'`). */
+    Quote,
+    /** Represents a double quote (`"`). */
+    DoubleQuote,
+    /** Represents a quote in backticks (`` ` ``). */
+    BackQuote,
+    /** Represents an opening parenthesis (`(`). */
+    LParen,
+    /** Represents a closing parenthesis (`)`). */
+    RParen,
+    /** Represents an opening brace (`{`). */
+    LBrace,
+    /** Represents a closing brace (`}`). */
+    RBrace,
+    /** Represents an opening bracket (`[`). */
+    LBracket,
+    /** Represents a closing bracket (`]`). */
+    RBracket,
+    /** Represents a semicolon (`;`). */
+    Semi,
+    /** Represents a comma (`,`). */
+    Comma,
+    /** Represents a dot (`.`). */
+    Dot,
+    /** Represents a colon (`:`). */
+    Colon,
+    /** Represents a double colon (`::`). */
+    ColonColon,
+    /** Represents an equal sign (`=`). */
+    Eq,
+    /** Represents a plus (`+`). */
+    Plus,
+    /** Represents a minus (`-`). */
+    Minus,
+    /** Represents an asterisk (`*`). */
+    Star,
+    /** Represents a slash (`/`). */
+    Slash,
+    /** Represents a percentage sign (`%`). */
+    Percent,
+    /** Represents an exclamation mark (bang) (`!`). */
+    Bang,
+    /** Represents a "less than" sign (`<`). */
+    Lt,
+    /** Represents a double "less than" sign (`<<`). */
+    LtLt,
+	/** Represents a "less or equal" sign (`<=`). */
+	Le,
+    /** Represents a "greater than" sign (`>`). */
+    Gt,
+    /** Represents a double "greater than" sign (`>>`). */
+    GtGt,
+	/** Represents a "greater or equal" sign (`>=`). */
+	Ge,
+	/** Represents a double equal sign (`==`). */
+	EqEq,
+	/** Represents a "bang equal" sign (`!=`). */
+	BangEq,
+    /** Represents an ambersand (`&`). */
+    And,
+	/** Represents a double ambersand (`&&`). */
+	AndAnd,
+    /** Represents a vertical slash (`|`). */
+    Or,
+	/** Represents a doubel vertical slash (`||`). */
+	OrOr,
+    /** Represents an arrow (`->`). */
+    Arrow,
+    /** Represents a caret (`^`). */
+    Caret,
+    /** Represents a tilde (`~`). */
+    Tilde,
+    /** Represents a question mark (`?`). */
+    Question,
+    /** Represents an at symbol (`@`). */
+    At,
+    /** End of File. */
+    Eof
 }
 
 export const specialChars = {
@@ -127,12 +196,12 @@ export class Token {
 
 	/** Returns a string representation of the token. */
 	toString() {
-		return `${TokenKind[this.type]}${this.content ? ` '${this.content}'` : ''}`;
+		return `${TokenKind[this.type]}${this.content ? ` '${escapeSpecialChar(this.content)}'` : ''}`;
 	}
 
 	/** Returns the full string representation of the token. */
 	fullString() {
-		return `${this.toString()} [${this.span[0]} -> ${this.span[1]})`;
+		return `[${this.span[0]} -> ${this.span[1]}) ${this.toString()}`;
 	}
 }
 
@@ -150,6 +219,6 @@ export class NumberToken extends Token {
 	}
 
 	override toString() {
-		return `${TokenKind[this.type]}(${this.mode})${this.content ? `(${this.content})` : ''}`;
+		return `${TokenKind[this.type]}(${this.mode})${this.content ? ` '${this.content}'` : ''}`;
 	}
 }

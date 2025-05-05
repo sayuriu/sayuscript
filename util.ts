@@ -9,12 +9,26 @@ export type TokenSpan = Span;
 /** Represents a span of characters in a source file, exclusive. */
 export type CharSpan = Span;
 
-export const isSpecialChar = (c: Nullable<string>) => c && c.match(/[`@"'\(\)\{\}\[\];,\.:\=\+\-\*\/\%\!\<\>\&\|\^\~\?]/)
-export const isWhitespace = (c: Nullable<string>) => c && c.match(/\s/)
-export const isDigit = (c: Nullable<string>) => c && c.match(/\d/)
-export const isHexDigit = (c: Nullable<string>) => c && c.match(/[0-9a-fA-F]/)
-export const isAlpha = (c: Nullable<string>) => c && c.match(/[a-zA-Z_]/)
-export const isAlphaNumeric = (c: Nullable<string>) => c && c.match(/[a-zA-Z0-9_]/)
+export const isSpecialChar = (c: Nullable<string>) => c && c.match(/[`@"'\(\)\{\}\[\];,\.:\=\+\-\*\/\%\!\<\>\&\|\^\~\?]/);
+export const isWhitespace = (c: Nullable<string>) => c && c.match(/\s/);
+export const isDigit = (c: Nullable<string>) => c && c.match(/\d/);
+export const isHexDigit = (c: Nullable<string>) => c && c.match(/[0-9a-fA-F]/);
+export const isAlpha = (c: Nullable<string>) => c && c.match(/[a-zA-Z_]/);
+export const isAlphaNumeric = (c: Nullable<string>) => c && c.match(/[a-zA-Z0-9_]/);
+
+const specialCharEscapeMap: Record<string, string> = {
+    '\n': '\\n',
+    '\r': '\\r',
+    '\t': '\\t',
+    '\v': '\\v',
+    '\b': '\\b',
+    '\f': '\\f',
+};
+
+export const escapeSpecialChar = (c: string) => c.replaceAll(
+    /[\n\r\t\v\b\f]/g,
+    (match) => specialCharEscapeMap[match] ?? match
+)
 
 export const todo = (msg: string) => {
 	throw new Error(`TODO: ${msg}`);

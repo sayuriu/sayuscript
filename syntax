@@ -1,7 +1,6 @@
 Program is
   (
     ImportStatement
-    or DynamicImportStatement
     or ExportStatement
     or StrategyDeclarationStatement
     or ExtensionDeclarationStatement
@@ -22,25 +21,33 @@ or ActionDeclarationStatement
 ExportStatement is
   "export" ExportableStatement
 ,
-// import from Native::OpenLibrary("Sayuri.Silly.sayuc") as SillyActor;
-DynamicImportStatement is
-  "import" "from" CallExpr "as" Ident ";"
+ImportStatement is
+  "import"
+  (
+    ExternImportStatementBody
+    or StaticImportStatementBody
+  )
+  ";"
+,
+
+// import extern "Sayuri.Silly.sayuc" as SillyActor;
+ExternImportStatementBody is
+  "extern" StrLiteral "as" Ident
 ,
 // import RenderStrategy::*;
 // import Intruments::CspInterop::*;
 ImportStatement is
   "import"
-  Ident
+  (Ident ("as" Ident)?)
   ImportPathQualifier
-  ("as" Ident)?
-  ";"
+
 ,
-// ::RenderStrategy
-// ::Intruments::{ CspInterop, HumanInterfaceDevice::{Pen} }
+-- ::RenderStrategy
+-- ::Intruments::{ CspInterop, HumanInterfaceDevice::{Pen} }
 ImportPathQualifier is
   "::"
   (
-    Ident
+    Ident ("as" Ident)?
     or (
       "{"
       (

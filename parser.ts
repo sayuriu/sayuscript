@@ -1,38 +1,5 @@
-import {
-    Program,
-    Identifier,
-    Keyword,
-} from "./astNodes.ts";
-import {
-    VariableDeclarationStatement,
-    FnDeclarationStatement,
-    ExpressionStatement,
-    statementAllowedInBlock,
-    Statement,
-    ReturnStatement,
-    FnKind,
-} from "./statements.ts";
-import {
-    Literal,
-    Expression,
-    BinaryExpr,
-    BlockExpr,
-    FnCallExpr,
-    FnExpr,
-    TupleExpr,
-    UnaryExpr,
-    exprCanStandalone
-} from "./expression.ts";
-import {
-    UnaryOperators,
-    BinaryOperators,
-    constructOperator,
-    tryConstructOperator
-} from "./operators.ts";
-import { Token, TokenKind, LiteralTokenTypes } from "./token.ts";
-import { Keywords, tryResolveKeyword } from './keywords.ts';
-import { todo, Nullable } from "./util.ts";
-import { ImmediateCallExpr } from "./expression.ts";
+import { Token, TokenKind } from "./token.ts";
+import { Nullable, Span } from "./util.ts";
 
 export class ParserError extends Error {
     constructor(message: string, public startPos: number, public endPos: number) {
@@ -40,16 +7,21 @@ export class ParserError extends Error {
     }
 }
 
-enum Restriction {
+export enum Restriction {
     None,
-    Statement
+    Statement,
+    Expression,
+    Import,
+    ImportMultiple,
 }
 
-
-export abstract class ParserBase {
+export abstract class Parser {
     /** The current cursor position in the token stream. */
     protected cursor = 0;
     private readonly EOF = new Token(TokenKind.Eof, "", [0, 0], 0);
+    /** Whether the parser encountered errors while parsing. */
+    protected enounteredErrors = false;
+    protected accumulatedErrors: ParserError[] = [];
     /** The token that is currently being visited. */
     get currentToken() {
         return this.tokens[this.cursor] ?? this.EOF;
@@ -96,13 +68,15 @@ export abstract class ParserBase {
      *
      * Returns the token and advances the cursor if it matches, and throws an error otherwise.
      * */
+    expect<T extends TokenKind>(type: T): Token & { type: T };
+    expect<T extends TokenKind>(...types: (T | T[])[]): Token & { type: T[][number] };
     expect(...types: Array<TokenKind | Array<TokenKind>>): Token {
         const expected = types.flat();
         const token = this.currentToken;
         if (!expected.includes(token.type)) {
-            throw new ParserError(
+            throw this.constructError(
                 `Expected ${expected.length < 2 ? '' : 'any of'} ${expected.map(t => `\`${TokenKind[t as number]}\``)} but got ${TokenKind[token.type]}`,
-                ...token.span,
+                token.span,
             );
         }
         this.advance();
@@ -112,8 +86,10 @@ export abstract class ParserBase {
     /**
      * Grabs the current token and performs a type check against `types`.
      *
-     * Advances the cursor and returns the consumed token if it matches, and returns `false` otherwise.
+     * Advances the cursor and returns the consumed token if it matches, and returns `null` otherwise.
      * */
+    consume<T extends TokenKind>(type: T): Nullable<Token & { type: T }>;
+    consume<T extends TokenKind>(...types: (T | T[])[]): Nullable<Token & { type: T[][number] }>;
     consume(...types: Array<TokenKind | Array<TokenKind>>): Nullable<Token> {
         const token = this.currentToken;
         if (types.flat().includes(this.currentToken.type)) {
@@ -123,463 +99,20 @@ export abstract class ParserBase {
         return null;
     }
 
+    constructError(message: string, span: Span) {
+        this.enounteredErrors = true;
+        const error = new ParserError(message, span[0], span[1]);
+        this.report(message, span);
+        this.accumulatedErrors.push(error);
+        return error;
+    }
+
+    report(message: string, span: Span) {
+        console.log(`${span[0]}-${span[1]}: ${message}`);
+    }
+
+    /** Parses the token stream and returns the root node of the AST. */
     abstract parse(): unknown;
-}
-
-export class Parser extends ParserBase {
-    constructor(protected tokens: Token[]) {
-        super();
-    }
-
-    override parse() {
-        return this.Program();
-    }
-
-    Program() {
-        const statements = [];
-        while (!this.eof()) {
-            const stmt = this.Statement();
-            if (!stmt) {
-                break;
-            }
-            statements.push(stmt);
-        }
-        if (!this.eof()) {
-            console.error(`Expecting Eof, got token ${this.currentToken}`)
-        }
-        return new Program(statements);
-    }
-
-    KeywordStatement(kw: Identifier, isInsideBlock = false): Nullable<Statement>
-    {
-        const lastPos = kw.tokenSpan[0];
-        switch (kw.keyword) {
-            case Keywords.Let:
-                return this.VariableDeclarationStatement();
-            case Keywords.Action:
-            case Keywords.Compute:
-                try {
-                    return this.FnDeclarationStatement(kw);
-                } catch (e) {
-                    if (!isInsideBlock) {
-                        throw e;
-                    }
-                    // Might be a tailing fn expression, so we fallback
-                    this.cursor = lastPos;
-                    return null;
-                }
-            case Keywords.Return: {
-                const expr = this.Expression();
-                if (!expr) {
-                    throw new ParserError(
-                        `Expected an expression for return statement, got \`${this.currentToken}\``,
-                        ...this.currentToken.span,
-                    );
-                }
-                this.expect(TokenKind.Semi);
-                return new ReturnStatement(expr);
-            }
-        }
-        const badToken = this.tokens[kw.tokenSpan[0]];
-        throw new ParserError(
-            `Unexpected keyword \`${kw.keyword}\` in statement`,
-            ...badToken.span,
-        );
-    }
-
-    VariableDeclarationStatement() {
-        const letKw = this.lookBehind();
-        let isMutable = false;
-        let ident = this.expect(TokenKind.Ident);
-        const kwCandidate = tryResolveKeyword(ident.content!);
-        if (kwCandidate === Keywords.Var) {
-            isMutable = true;
-            ident = this.expect(TokenKind.Ident);
-        }
-        this.expect(TokenKind.Eq);
-        const expr = this.Expression();
-        if (!expr) {
-            throw new ParserError(
-                `Expected an expression for variable declaration, got \`${this.currentToken}\``,
-                ...this.currentToken.span,
-            );
-        }
-        this.expect(TokenKind.Semi);
-        return new VariableDeclarationStatement(
-            isMutable,
-            new Identifier(ident),
-            expr,
-            [letKw.tokenPos, expr.tokenSpan[1]]
-        );
-    }
-
-    FnDeclarationStatement(identKw: Identifier) {
-        const fnExpr = this.FnExpression(identKw, true);
-        return new FnDeclarationStatement(
-            fnExpr.ident!,
-            fnExpr.params,
-            fnExpr.body as BlockExpr,
-            [identKw.tokenSpan[0], fnExpr.tokenSpan[1]],
-            identKw.keyword === Keywords.Action ? FnKind.Action : FnKind.Compute
-        );
-    }
-
-    /** Parses the next statement.
-     *
-     * @param isInsideBlock Whether the statement is being parsed inside a block.
-    */
-    Statement(isInsideBlock = false) {
-        const token = this.currentToken;
-        if (this.consume(TokenKind.Ident)) {
-            const ident = new Identifier(token);
-            if (ident.isKeyword()) {
-                return this.KeywordStatement(ident, isInsideBlock);
-            }
-            this.retreat();
-        }
-
-        const lastPos = this.cursor;
-        const expr = this.ExpressionWithRestrictions(Restriction.Statement);
-        if (expr) {
-            if (!this.consume(TokenKind.Semi)) {
-                if (!isInsideBlock) {
-                    throw new ParserError(
-                        `Expected a semi-colon at the end of statement, got \`${this.currentToken}\``,
-                        ...token.span,
-                    );
-                }
-                // Might be a tailing expression, so we fallback
-                this.cursor = lastPos;
-                return null;
-            }
-            if (!exprCanStandalone(expr)) {
-                const startToken = this.tokens[expr.tokenSpan[0]];
-                const endToken = this.tokens[expr.tokenSpan[1]];
-                throw new ParserError(
-                    `Expression \`${expr}\` cannot be used as a statement`,
-                    startToken.span[0],
-                    endToken.span[1]
-                )
-            }
-            return new ExpressionStatement(expr);
-        }
-        return null;
-    }
-
-    TupleExpression(first: Expression, lParen: Token): TupleExpr
-    {
-        const expressions = [first];
-        while (true) {
-            const expression = this.Expression();
-            if (!expression) {
-                break;
-            }
-            expressions.push(expression);
-            if (this.consume(TokenKind.Comma)) {
-                continue;
-            }
-            break;
-        }
-        const rParen = this.currentToken;
-        this.expect(TokenKind.RParen);
-        return new TupleExpr(expressions, [lParen.tokenPos, rParen.tokenPos + 1]);
-    }
-
-    /** Parses the next unary prefix expression, eg. `-1`. */
-    UnaryPrefixExpression(): Nullable<Expression>
-    {
-        const token = this.currentToken;
-        if (this.consume(UnaryOperators)) {
-            const expr = this.UnaryPrefixExpression();
-            if (!expr) {
-                throw new ParserError(
-                    `Expected an expression right-hand side of unary expression, got \`${this.currentToken}\``,
-                    ...this.currentToken.span,
-                );
-            }
-            return new UnaryExpr(constructOperator(token), expr);
-        }
-        return this.PrimaryExpression();
-    }
-
-    UnaryPostfixExpression(): Expression
-    {
-        return todo("UnaryPostfixExpression");
-    }
-
-    BlockExpression(): BlockExpr {
-        const lBrace = this.currentToken;
-        this.expect(TokenKind.LBrace);
-        const statements = [];
-        while (!this.currentlyIs(TokenKind.RBrace)) {
-            const stmt = this.Statement(true);
-            if (stmt) {
-                if (!statementAllowedInBlock(stmt)) {
-                    const startToken = this.tokens[stmt.tokenSpan[0]];
-                    const endToken = this.tokens[stmt.tokenSpan[1]];
-                    throw new ParserError(
-                        `Statement \`${stmt.tokenSpan}\` is not allowed in a block`,
-                        startToken.span[0],
-                        endToken.span[1]
-                    );
-                }
-                statements.push(stmt);
-                continue;
-            }
-            break;
-        }
-        const tailingExpr = this.Expression();
-        if (tailingExpr) {
-            statements.push(tailingExpr);
-        }
-        this.expect(TokenKind.RBrace);
-        return new BlockExpr(statements, [lBrace.tokenPos, this.cursor]);
-    }
-
-    /** Parses the next function expression.
-     * If `standalone` is set to `true`, then the function must have a name.
-     *
-     */
-    FnExpression(identKw: Identifier, standalone = false): FnExpr
-    {
-        const ident = this.consume(TokenKind.Ident);
-        if (standalone && !ident) {
-            throw new ParserError(
-                `Expected an identifier for function declaration`,
-                ...this.currentToken.span,
-            );
-        }
-        const maybeKw = tryResolveKeyword(ident?.content ?? '');
-        if (maybeKw !== null)
-        {
-            throw new ParserError(
-                `Expected an identifier for function declaration, got keyword \`${Keywords[maybeKw]}\``,
-                ...ident!.span,
-            );
-        }
-        const fnName: Nullable<Identifier> = ident !== null ? new Identifier(ident) : null;
-        const params: Identifier[] = [];
-
-        this.expect(TokenKind.LParen);
-        while (!this.currentlyIs(TokenKind.RParen)) {
-            params.push(new Identifier(this.expect(TokenKind.Ident)));
-            if (this.consume(TokenKind.Comma)) {
-                continue;
-            }
-            break;
-        }
-        this.expect(TokenKind.RParen);
-        this.expect(TokenKind.Arrow);
-        // TODO: Error with context
-        const body = standalone ? this.BlockExpression() : this.Expression();
-        if (!body) {
-            throw new ParserError(
-                `Expected an expression for function body, got \`${this.currentToken}\``,
-                ...this.currentToken.span,
-            );
-        }
-        return new FnExpr(
-            fnName,
-            params,
-            body,
-            [identKw.tokenSpan[0], this.cursor],
-            identKw.keyword === Keywords.Action ? FnKind.Action : FnKind.Compute
-        );
-    }
-
-    /** Parses a function call expression, such as
-     * ```sayu
-     * print(1, 2, "amogus")
-     * ```
-    */
-    FnCallExpression(ident: Identifier): Expression
-    {
-        const args = [];
-        // LParen Expr (Comma Expr)* RParen
-        do {
-            const arg = this.Expression();
-            if (!arg) {
-                break; // no expr, invalid state
-            }
-            args.push(arg);
-        } while (this.consume(TokenKind.Comma));
-        this.expect(TokenKind.RParen);
-        return new FnCallExpr(
-            ident,
-            args,
-            [ident.tokenSpan[0], this.cursor]
-        );
-    }
-
-    ImmediateCallExpression(fnValue: Expression): Expression {
-        const args = [];
-        // LParen Expr (Comma Expr)* RParen
-        do {
-            const arg = this.Expression();
-            if (!arg) {
-                break; // no expr, invalid state
-            }
-            args.push(arg);
-        } while (this.consume(TokenKind.Comma));
-        this.expect(TokenKind.RParen);
-        const fnCall = new ImmediateCallExpr(
-            fnValue,
-            args,
-            [fnValue.tokenSpan[0], this.cursor]
-        );
-        // ? There exists another call site. Can I make this a DFA?
-        if (this.consume(TokenKind.LParen)) {
-            return this.ImmediateCallExpression(fnCall);
-        }
-        return fnCall;
-    }
-
-    KeywordExpression(kw: Keyword): Expression
-    {
-        switch (kw.keyword) {
-            case Keywords.Action:
-            case Keywords.Compute:
-                return this.FnExpression(kw);
-        }
-        const badToken = this.tokens[kw.tokenSpan[0]];
-        throw new ParserError(
-            `Unexpected keyword \`${kw.name}\` in expression`,
-            ...badToken.span,
-        );
-    }
-
-    /** Parses the next primary expression. */
-    PrimaryExpression(): Nullable<Expression>
-    {
-        const token = this.currentToken;
-        if (this.consume(TokenKind.Ident, LiteralTokenTypes)) {
-            if (token.type === TokenKind.Ident) {
-                const ident = new Identifier(token);
-                if (ident.isKeyword()) {
-                    return this.KeywordExpression(ident);
-                }
-                if (this.consume(TokenKind.LParen)) {
-                    // Paren exists, must be a function call
-                    return this.FnCallExpression(ident);
-                }
-                return ident;
-            }
-            return new Literal(token);
-        }
-        else if (this.consume(TokenKind.LParen)) {
-            const lparen = token;
-            const expr = this.Expression();
-            if (!expr) {
-                if (this.currentlyIs(TokenKind.RParen)) {
-                    // OK, it's an empty tuple
-                    this.expect(TokenKind.RParen);
-                    return new TupleExpr([], [lparen.tokenPos, this.currentToken.tokenPos + 1]);
-                }
-                throw new ParserError(
-                    `Expected an expression inside parentheses, got \`${this.currentToken}\``,
-                    ...this.currentToken.span,
-                );
-            }
-            // If we find a coma, then it's a tuple
-            if (this.consume(TokenKind.Comma)) {
-                return this.TupleExpression(expr, lparen);
-            }
-            this.expect(TokenKind.RParen);
-            return expr;
-        }
-        else if (this.consume(TokenKind.LBrace)) {
-            this.retreat();
-            return this.BlockExpression();
-        }
-        return null;
-    }
-
-    /** Parses the next binary expression.
-     * The second boolean return value indicates if something new was parsed.
-    */
-    BinaryExpression(minPrecedence: number, lhs: Expression): [Expression, boolean]
-    {
-        let token: Token;
-        let somethingParsed = false;
-        while (token = this.consume(BinaryOperators) as Token) {
-            const currentOp = constructOperator(token);
-            const currentOpPrecedence = currentOp.precedence!;
-            if (currentOpPrecedence < minPrecedence) {
-                break;
-            }
-            let rhs = this.UnaryPrefixExpression();
-            if (!rhs) {
-                // Exists a binary operator, but there's no right-hand side of the expression
-                // TODO: Check if the operator is postfix
-                // * For now there's no postfix op yet, so we will throw
-                throw new ParserError(
-                    `Expected an expression right-hand side of binary expression, got \`${this.currentToken}\``,
-                    ...token.span
-                );
-            }
-            somethingParsed = true;
-            const nextOpPrecedence = tryConstructOperator(this.currentToken)?.precedence;
-            if (nextOpPrecedence)
-            {
-                if (currentOpPrecedence < nextOpPrecedence) {
-                    const [candidate, parsed] = this.BinaryExpression(currentOpPrecedence + 1, rhs);
-                    if (parsed) {
-                        rhs = candidate;
-                    }
-                }
-            }
-            return [new BinaryExpr(lhs, currentOp, rhs), somethingParsed];
-        }
-        return [lhs, somethingParsed];
-    }
-
-    /** Parses the next expression, with some restrictions. */
-    ExpressionWithRestrictions(restrictions: Restriction)
-    {
-        const startPos = this.cursor;
-        const expr = this.Expression();
-        if (!expr) {
-            this.cursor = startPos;
-            return null;
-        }
-        // if (restrictions === Restriction.Statement) {
-        //     if (!exprCanStandalone(expr))
-        //     {
-        //         throw new ParserError(
-        //             `Expression \`${expr}\` cannot be used as a statement`,
-        //             expr.lineSpan[0],
-        //             expr.positionSpan[0],
-        //             expr.positionSpan[1]
-        //         );
-        //     }
-        // }
-        return expr;
-    }
-
-    /* Parses the next expression. */
-    Expression() {
-        let lhs = this.UnaryPrefixExpression();
-        if (!lhs) {
-            return null;
-        }
-        while (true)
-        {
-            if (this.currentlyIs(TokenKind.LParen)) {
-                this.advance();
-                lhs = this.ImmediateCallExpression(lhs);
-            }
-            if (this.currentlyIs(TokenKind.Semi, TokenKind.Eof)) {
-                return lhs;
-            }
-            const [expr, somethingParsed] = this.BinaryExpression(0, lhs);
-            if (!somethingParsed) {
-                return expr;
-            }
-            const nextBinOp = this.currentlyIs(BinaryOperators);
-            if (!nextBinOp) {
-                return expr;
-            }
-            lhs = expr;
-        }
-    }
+    /** Attempts a recovery from a parsing error. */
+    abstract recover(): void;
 }

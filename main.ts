@@ -1,6 +1,6 @@
 import { inspect } from "node:util";
-import { Tokenizer } from "./tokenizer.ts";
-import { Parser } from "./parser.ts";
+import { CompilerTokenizer } from "./tokenizer.ts";
+import { DefaultParser } from "./defaultParser.ts";
 import { SimpleAstPrinter } from "./astSimplePrinter.ts";
 import type { Token } from "./token.ts";
 import type { Program } from "./astNodes.ts";
@@ -82,8 +82,8 @@ else if (!subcommands.includes(subcommand)) {
 
 const source = file();
 console.log(`Parsing tokens`);
-const tokenizer = new Tokenizer(source);
-const tokens = [...tokenizer];
+const tokenizer = new CompilerTokenizer(source);
+const tokens = tokenizer.tokenize();
 
 function printTokens(tokens: Token[]) {
     if (options.json) {
@@ -103,7 +103,7 @@ function printTokens(tokens: Token[]) {
 function parseAst(tokens: Token[])
 {
     console.log(`Parsing AST`);
-    const parser = new Parser(tokens);
+    const parser = new DefaultParser(tokens);
     return parser.parse();
 }
 

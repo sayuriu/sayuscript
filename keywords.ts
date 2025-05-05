@@ -7,7 +7,11 @@ export enum Keywords {
     As,
     Action,
     Compute,
-    Return
+    Return,
+    Import,
+    Export,
+    From,
+    Extern,
 }
 
 export const KeywordMapping = new BidirectionalMap<Keywords, string>([
@@ -16,7 +20,11 @@ export const KeywordMapping = new BidirectionalMap<Keywords, string>([
     [Keywords.As, "as"],
     [Keywords.Action, "action"],
     [Keywords.Compute, "compute"],
-    [Keywords.Return, "return"]
+    [Keywords.Return, "return"],
+    [Keywords.Import, "import"],
+    [Keywords.Export, "export"],
+    [Keywords.From, "from"],
+    [Keywords.Extern, "extern"],
 ]);
 
 export function resolveKeyword(kw: string): Keywords {

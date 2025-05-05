@@ -1,7 +1,8 @@
 import { TokenKind, specialChars, NumberLiteralKind, NumberToken, Token } from "./token.ts";
 import { Nullable, isWhitespace, isSpecialChar, isDigit, isAlpha, isAlphaNumeric, isHexDigit } from "./util.ts";
 
-export class Tokenizer {
+/** Tokenizer, for compiler use. */
+export class CompilerTokenizer {
     /** The current cursor position in the source string. */
     private cursor = 0;
     private startPos = 0;
@@ -349,107 +350,106 @@ export class Tokenizer {
     parseSpecialChar(): Token {
         const c = this.currentChar;
         // Comments
-        if (c === '/') {
-            // Inline
-            if (this.lookAhead() === '/') {
-                while (this.nextChar()) {
-                    if (this.currentChar === '\n')
-                        break;
+        switch (c) {
+            case '/': {
+                // Inline
+                if (this.lookAhead() === '/') {
+                    this.advance();
+                    return this.parseLineComment();
                 }
-                return this.nextToken();
-            }
-            // TODO: Add block comments, (docstring too)
-            if (this.lookAhead() === '*') {
-                this.advance();
-                while (this.nextChar()) {
-                    if (this.currentChar === '*' && this.lookAhead() === '/') {
-                        this.advance();
-                        this.advance();
-                        break;
-                    }
+                if (this.lookAhead() === '*') {
+                    this.advance();
+                    return this.parseBlockComment();
                 }
-                return this.nextToken();
-            }
-            this.advance();
-            return this.makeInlineToken(TokenKind.Slash, c);
-        }
-        else if (c === '.') {
-            const next = this.lookAhead();
-            // Check if it's a float
-            if (isDigit(next)) {
-                return this.nextNumberLiteral();
-            }
-            return this.makeInlineToken(TokenKind.Dot, c);
-        }
-        else if (c === '<') {
-            const next = this.lookAhead();
-            this.advance();
-            this.advance();
-            if (next === '<') {
-                return this.makeInlineToken(TokenKind.LtLt, '<<');
-            } else if (next === '=') {
-                return this.makeInlineToken(TokenKind.Le, '<=');
-            }
-            // Doesn't match any of the above, retreat
-            this.retreat();
-            return this.makeInlineToken(TokenKind.Lt, '<');
-        }
-        else if (c === '>') {
-            const next = this.lookAhead();
-            this.advance();
-            this.advance();
-            if (next === '>') {
-                return this.makeInlineToken(TokenKind.GtGt, '>>');
-            }
-            else if (next === '=') {
-                return this.makeInlineToken(TokenKind.Ge, '>=');
-            }
-            this.retreat();
-            return this.makeInlineToken(TokenKind.Gt, '>');
-        }
-        else if (c === '&') {
-            const next = this.lookAhead();
-            this.advance();
-            if (next === '&') {
                 this.advance();
-                return this.makeInlineToken(TokenKind.AndAnd, '&&');
+                return this.makeInlineToken(TokenKind.Slash, c);
             }
-            return this.makeInlineToken(TokenKind.And, '&');
-        }
-        else if (c === '|' && this.lookAhead() === '|') {
-            const next = this.lookAhead();
-            this.advance();
-            if (next === '|') {
+            case '.': {
+                const next = this.lookAhead();
+                // Check if it's a float
+                if (isDigit(next)) {
+                    return this.nextNumberLiteral();
+                }
+                return this.makeInlineToken(TokenKind.Dot, c);
+            }
+            case '<': {
+                const next = this.lookAhead();
                 this.advance();
-                return this.makeInlineToken(TokenKind.OrOr, '||');
-            }
-            return this.makeInlineToken(TokenKind.Or, '|');
-        }
-        else if (c === '=') {
-            this.advance();
-            if (this.currentChar === '=') {
                 this.advance();
-                return this.makeInlineToken(TokenKind.EqEq, '==');
+                if (next === '<') {
+                    return this.makeInlineToken(TokenKind.LtLt, '<<');
+                } else if (next === '=') {
+                    return this.makeInlineToken(TokenKind.Le, '<=');
+                }
+                // Doesn't match any of the above, retreat
+                this.retreat();
+                return this.makeInlineToken(TokenKind.Lt, '<');
             }
-            return this.makeInlineToken(TokenKind.Eq, c);
-        }
-        else if (c === '!') {
-            this.advance();
-            if (this.currentChar === '=') {
+            case '>': {
+                const next = this.lookAhead();
                 this.advance();
-                return this.makeInlineToken(TokenKind.BangEq, '!=');
-            }
-            return this.makeInlineToken(TokenKind.Bang, c);
-        }
-        else if (c === '-') {
-            this.advance();
-            if (this.currentChar === '>') {
                 this.advance();
-                return this.makeInlineToken(TokenKind.Arrow, '->');
+                if (next === '>') {
+                    return this.makeInlineToken(TokenKind.GtGt, '>>');
+                }
+                else if (next === '=') {
+                    return this.makeInlineToken(TokenKind.Ge, '>=');
+                }
+                this.retreat();
+                return this.makeInlineToken(TokenKind.Gt, '>');
             }
-            return this.makeInlineToken(TokenKind.Minus, c);
+            case '&': {
+                const next = this.lookAhead();
+                this.advance();
+                if (next === '&') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.AndAnd, '&&');
+                }
+                return this.makeInlineToken(TokenKind.And, '&');
+            }
+            case '|': {
+                const next = this.lookAhead();
+                this.advance();
+                if (next === '|') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.OrOr, '||');
+                }
+                return this.makeInlineToken(TokenKind.Or, '|');
+            }
+            case '=': {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.EqEq, '==');
+                }
+                return this.makeInlineToken(TokenKind.Eq, c);
+            }
+            case '!': {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.BangEq, '!=');
+                }
+                return this.makeInlineToken(TokenKind.Bang, c);
+            }
+            case '-': {
+                this.advance();
+                if (this.currentChar === '>') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.Arrow, '->');
+                }
+                return this.makeInlineToken(TokenKind.Minus, c);
+            }
+            case ':': {
+                this.advance();
+                if (this.currentChar === ':') {
+                    this.advance();
+                    return this.makeInlineToken(TokenKind.ColonColon, '::');
+                }
+                return this.makeInlineToken(TokenKind.Colon, c);
+            }
         }
-        else if (c in specialChars) {
+        if (c in specialChars) {
             this.advance();
             return this.makeInlineToken(specialChars[c as keyof typeof specialChars], c);
         }
@@ -457,10 +457,43 @@ export class Tokenizer {
         throw new LexerError(`Unexpected special character \`${c}\``, this.currentLine, this.lineCursor);
     }
 
-    nextToken() {
-        if (isWhitespace(this.currentChar))
-            while (isWhitespace(this.nextChar()));
+    parseWhitespace() {
+        let buffer = this.currentChar;
+        while (this.nextChar()) {
+            const c = this.currentChar;
+            if (!isWhitespace(c))
+                break;
+            buffer += c;
+        }
+        return this.makeInlineToken(TokenKind.Whitespace, buffer);
+    }
 
+    parseLineComment() {
+        let buffer = '//';
+        while (this.nextChar()) {
+            const c = this.currentChar;
+            if (c === '\n' || c === '\r')
+                break;
+            buffer += c;
+        }
+        return this.makeInlineToken(TokenKind.LineComment, buffer);
+    }
+
+    parseBlockComment() {
+        let buffer = '/*';
+        while (this.nextChar()) {
+            const c = this.currentChar;
+            if (c === '*' && this.lookAhead() === '/') {
+                this.advance();
+                break;
+            }
+            buffer += c;
+        }
+        this.advance();
+        return this.makeInlineToken(TokenKind.BlockComment, buffer);
+    }
+
+    nextToken() {
         this.startPos = this.cursor;
 
         if (this.eof())
@@ -470,8 +503,13 @@ export class Tokenizer {
             return new Token(TokenKind.Eof, "", [position, position], this.tokenCounter);
         }
 
+
         const currentChar = this.currentChar;
 
+        if (isWhitespace(currentChar))
+        {
+            return this.parseWhitespace();
+        }
         if (currentChar === '"') {
             return this.nextStringLiteral();
         }
@@ -513,7 +551,7 @@ export class Tokenizer {
 
     /** Consumes the input and returns a list of tokens. */
     tokenize() {
-        return [...this];
+        return [...this, this.nextToken()];
     }
 }
 

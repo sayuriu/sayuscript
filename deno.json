@@ -11,6 +11,8 @@
       "ESNext",
       "DOM",
       "deno.ns"
-    ]
+    ],
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   }
 }

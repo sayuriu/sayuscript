@@ -3,11 +3,12 @@ import { Identifier } from "../astNodes.ts";
 import { Expression, BinaryExpr, UnaryExpr, Literal, FnCallExpr, TupleExpr, FnExpr, BlockExpr, ImmediateCallExpr } from "../expression.ts";
 import { Keywords, KeywordMapping } from "../keywords.ts";
 import { Operator, Operations, OperationMapping } from "../operators.ts";
-import { Parser } from "../parser.ts";
+import { DefaultParser } from "../defaultParser.ts";
 import { TokenKind, Token, NumberLiteralKind, NumberToken } from "../token.ts";
-import { Tokenizer } from "../tokenizer.ts";
+import { CompilerTokenizer } from "../tokenizer.ts";
 import type { CharSpan, Nullable, TokenSpan } from "../util.ts";
 import { VariableDeclarationStatement, ExpressionStatement, Statement, FnKind } from "../statements.ts";
+import { Ok } from "../result.ts";
 
 export function token(
     kind: TokenKind,
@@ -93,10 +94,10 @@ export function testValidCasesForExprParser(cases: TestCase<Expression>[])
 {
     for (const { input, expected } of cases)
     {
-        const tokens = [...new Tokenizer(input)];
-        const parser = new Parser(tokens);
+        const tokens = [...new CompilerTokenizer(input)];
+        const parser = new DefaultParser(tokens);
         Deno.test(`parser.Expression() parses '${input}' correctly`, () => {
-            assertEquals(parser.Expression(), expected);
+            assertEquals(parser.Expression(), Ok(expected));
         });
     }
 }

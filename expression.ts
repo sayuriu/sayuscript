@@ -2,7 +2,7 @@ import { Identifier } from "./astNodes.ts";
 import { AstNode } from "./astNode.ts";
 import { Operations, Operator } from "./operators.ts";
 import { TokenKind, Token, LiteralTokenTypes } from "./token.ts";
-import type { Nullable, TokenSpan } from './util.ts';
+import { NODE_INSPECT_SYMBOL, type Nullable, type TokenSpan } from './util.ts';
 import { FnKind, type Statement } from "./statements.ts";
 import type { Visitor } from "./visitor.ts";
 
@@ -26,6 +26,10 @@ export class Literal extends Expression {
 
     override accept<T>(visitor: Visitor<T>): T {
         return visitor.visitLiteral(this);
+    }
+
+    [NODE_INSPECT_SYMBOL]() {
+        return `${TokenKind[this.kind]} { value: '${this.value}', tokenSpan: [${this.tokenSpan.join(' -> ')}) }`;
     }
 }
 

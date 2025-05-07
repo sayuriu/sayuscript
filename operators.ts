@@ -1,6 +1,6 @@
 import { Keywords } from "./keywords.ts";
 import { Token, TokenKind } from "./token.ts";
-import { BidirectionalMap, Nullable, tryWrapper } from "./util.ts";
+import { BidirectionalMap, NODE_INSPECT_SYMBOL, Nullable, tryWrapper } from "./util.ts";
 import { resolveKeyword } from './keywords.ts';
 import { AstNode } from "./astNode.ts";
 import type { Visitor } from "./visitor.ts";
@@ -75,6 +75,10 @@ export class Operator extends AstNode {
     override accept<T>(visitor: Visitor<T>): T {
         return visitor.visitOperator(this);
     }
+
+    [NODE_INSPECT_SYMBOL]() {
+        return `Operator { op: ${Operations[this.operation]}, tokenSpan: [${this.tokenSpan.join(' -> ')}) }`;
+    }
 }
 
 export const constructOperator = (token: Token): Operator => {
@@ -85,7 +89,7 @@ export const tryConstructOperator = tryWrapper(constructOperator);
 
 export const resolveOperation = (op: TokenKind | Keywords): Operations => {
     const resolved = OperationMapping.getReverse(op);
-    if (!resolved) {
+    if (typeof resolved === 'undefined') {
         throw new Error(`Could not resolve operator ${TokenKind[op]}`);
     }
     return resolved;
@@ -128,7 +132,7 @@ export const operatorPrecedence = (op: Operations): Nullable<number> => {
         case Operations.Assign:
             return 2;
     }
-    return null
+    return null;
 }
 
 export const UnaryOperators = [
@@ -136,8 +140,12 @@ export const UnaryOperators = [
     TokenKind.Minus,
 ]
 
+
+export const BinaryKeywordOperators = [
+    Keywords.As,
+]
+
 export const BinaryOperators = [
-    // Keywords.As,
     TokenKind.Plus,
     TokenKind.Minus,
     TokenKind.Star,

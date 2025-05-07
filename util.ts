@@ -115,3 +115,5 @@ export class BidirectionalMap<K, V> {
 		this.reverseMap.set(value, key);
 	}
 }
+
+export const NODE_INSPECT_SYMBOL = Symbol.for("nodejs.util.inspect.custom");

@@ -1,5 +1,5 @@
 import { Token, TokenKind } from "./token.ts";
-import { Nullable } from "./util.ts";
+import { NODE_INSPECT_SYMBOL, Nullable } from "./util.ts";
 import { Keywords, tryResolveKeyword } from './keywords.ts';
 import { AstNode } from "./astNode.ts";
 import type { Statement } from "./statements.ts";
@@ -43,6 +43,10 @@ export class Identifier extends AstNode {
 
     override accept<T>(visitor: Visitor<T>): T {
         return visitor.visitIdentifier(this);
+    }
+
+    [NODE_INSPECT_SYMBOL]() {
+        return `Identifier { ${this.keyword !== null ? `Keyword:${Keywords[this.keyword]}` : `'${this.name}'`}, tokenSpan: [${this.tokenSpan.join(' -> ')}) }`;
     }
 }
 

@@ -1,4 +1,4 @@
-import { BidirectionalMap, escapeSpecialChar, type CharSpan } from "./util.ts";
+import { BidirectionalMap, escapeSpecialChar, NODE_INSPECT_SYMBOL, type CharSpan } from "./util.ts";
 
 export enum CommentKind {
     Line,
@@ -162,10 +162,10 @@ export const specialCharsMapping = new BidirectionalMap(
 )
 
 export enum NumberLiteralKind {
-    Decimal = 'Dec',
-    Hex = 'Hex',
-    Octal = 'Oct',
-    Binary = 'Bin',
+    Decimal,
+    Hex,
+    Octal,
+    Binary,
 }
 
 
@@ -203,6 +203,11 @@ export class Token {
 	fullString() {
 		return `[${this.span[0]} -> ${this.span[1]}) ${this.toString()}`;
 	}
+
+    [NODE_INSPECT_SYMBOL]() {
+        const [start, end] = this.span;
+        return `Token(${this.tokenPos}) { type: ${TokenKind[this.type]}, charSpan: [${start} -> ${end})${this.content ? `, content: '${escapeSpecialChar(this.content)}'` : ''} }`;
+    }
 }
 
 /** Represents a number token. */
@@ -221,4 +226,9 @@ export class NumberToken extends Token {
 	override toString() {
 		return `${TokenKind[this.type]}(${this.mode})${this.content ? ` '${this.content}'` : ''}`;
 	}
+
+    [Symbol.for("nodejs.util.inspect.custom")]() {
+        const [start, end] = this.span;
+        return `Token(${this.tokenPos}) { type: ${TokenKind[this.type]}:${NumberLiteralKind[this.mode]}, charSpan: [${start} -> ${end})${this.content ? `', content: ${escapeSpecialChar(this.content)}'` : ''} }`;
+    }
 }

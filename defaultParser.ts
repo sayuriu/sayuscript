@@ -33,7 +33,8 @@ import {
     UnaryOperators,
     BinaryOperators,
     constructOperator,
-    tryConstructOperator
+    tryConstructOperator,
+    BinaryKeywordOperators
 } from "./operators.ts";
 import { Token, TokenKind, LiteralTokenTypes } from "./token.ts";
 import { Keywords, tryResolveKeyword } from './keywords.ts';
@@ -488,19 +489,18 @@ export class DefaultParser extends Parser {
                 continue;
             }
             const stmt = stmtResult.unwrap();
-            if (stmt) {
-                if (!statementAllowedInBlock(stmt)) {
-                    const startToken = this.tokens[stmt.tokenSpan[0]];
-                    const endToken = this.tokens[stmt.tokenSpan[1]];
-                    throw this.constructError(
-                        `Statement \`${stmt.tokenSpan}\` is not allowed in a block`,
-                        [startToken.span[0], endToken.span[1]]
-                    );
-                }
-                statements.push(stmt);
-                continue;
+            if (!stmt) {
+                break;
             }
-            break;
+            if (!statementAllowedInBlock(stmt)) {
+                const startToken = this.tokens[stmt.tokenSpan[0]];
+                const endToken = this.tokens[stmt.tokenSpan[1]];
+                throw this.constructError(
+                    `Statement \`${stmt.tokenSpan}\` is not allowed in a block`,
+                    [startToken.span[0], endToken.span[1]]
+                );
+            }
+            statements.push(stmt);
         }
         const tailingExpr = this.Expression().unwrapOrThrow();
         if (tailingExpr) {
@@ -708,8 +708,12 @@ export class DefaultParser extends Parser {
         let token: Token;
         let somethingParsed = false;
         // deno-lint-ignore no-cond-assign
-        while (token = this.consume(BinaryOperators) as Token) {
-            const currentOp = constructOperator(token);
+        while (token = this.consume(BinaryOperators, TokenKind.Ident) as Token) {
+            const currentOp = tryConstructOperator(token);
+            if (!currentOp) {
+                this.retreat();
+                break;
+            }
             const currentOpPrecedence = currentOp.precedence!;
             if (currentOpPrecedence < minPrecedence) {
                 break;
@@ -725,15 +729,17 @@ export class DefaultParser extends Parser {
                 );
             }
             somethingParsed = true;
-            const nextOpPrecedence = tryConstructOperator(this.currentToken)?.precedence;
-            if (nextOpPrecedence)
+            let nextOpPrecedence = tryConstructOperator(this.currentToken)?.precedence;
+            while (nextOpPrecedence)
             {
-                if (currentOpPrecedence < nextOpPrecedence) {
-                    const [candidate, parsed] = this.BinaryExpression(currentOpPrecedence + 1, rhs).unwrapOrThrow();
-                    if (parsed) {
-                        rhs = candidate;
-                    }
+                if (currentOpPrecedence >= nextOpPrecedence) {
+                    break;
                 }
+                const [candidate, parsed] = this.BinaryExpression(currentOpPrecedence + 1, rhs).unwrapOrThrow();
+                if (parsed) {
+                    rhs = candidate;
+                }
+                nextOpPrecedence = tryConstructOperator(this.currentToken)?.precedence;
             }
             return Ok([new BinaryExpr(lhs, currentOp, rhs), somethingParsed]);
         }
@@ -782,8 +788,11 @@ export class DefaultParser extends Parser {
             if (!somethingParsed) {
                 return Ok(expr);
             }
-            const nextBinOp = this.currentlyIs(BinaryOperators);
-            if (!nextBinOp) {
+            const isNextBinaryOperator = (
+                this.currentlyIs(BinaryOperators)
+                || (BinaryKeywordOperators.includes(tryResolveKeyword(this.currentToken.content)!))
+            );
+            if (!isNextBinaryOperator) {
                 return Ok(expr);
             }
             lhs = expr;

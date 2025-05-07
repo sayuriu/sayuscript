@@ -9,5 +9,5 @@ import Sayuri::Engine::{
 };
 
 action main() -> {
-    _RenderStyle::Default("a");
+    let a = (1 + 2 as Int as Float * 3 as Float);
 }
